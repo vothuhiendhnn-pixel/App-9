@@ -1,6 +1,8 @@
 import React from 'react';
 import { UserProfile, StudentProgress } from '../types';
 import { ProgressBar } from '../components/ProgressBar';
+import { studentService } from '../services/studentService';
+import { googleSheetsService } from '../services/googleSheetsService';
 import {
   BookOpen,
   Sparkles,
@@ -15,6 +17,8 @@ import {
   AlertCircle,
   Clock,
   CheckCircle2,
+  Check,
+  CloudCheck,
 } from 'lucide-react';
 
 interface StudentHomeScreenProps {
@@ -38,6 +42,8 @@ export const StudentHomeScreen: React.FC<StudentHomeScreenProps> = ({
   onNavigateReview,
   onNavigateUnits,
 }) => {
+  const firstName = studentService.getStudentDisplayName(user.name);
+
   const handleGoModule = (mod: 'vocab' | 'grammar' | 'pronunciation' | 'listening' | 'practice') => {
     if (onNavigateModule) {
       onNavigateModule(1, mod);
@@ -72,11 +78,11 @@ export const StudentHomeScreen: React.FC<StudentHomeScreenProps> = ({
                 English 9 - Miss Hiền
               </span>
               <span className="text-xs font-semibold text-[#5C6B57]">
-                Lớp {user.className}
+                Lớp {user.className || '9A'}
               </span>
             </div>
             <h1 className="text-2xl sm:text-3xl font-black text-[#2D332A] mt-1.5 tracking-tight font-serif">
-              Hello, {user.name}! 👋
+              Hello, {firstName}! 👋
             </h1>
             <p className="text-sm font-medium text-[#5C6B57] mt-0.5">
               Let's learn something today. Cùng chinh phục Unit 1 nhé!

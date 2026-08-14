@@ -48,10 +48,13 @@ export const StudentProfileScreen: React.FC<StudentProfileScreenProps> = ({
                   {user.name}
                 </h1>
                 <span className="text-xs font-black bg-[#E8EFE6] text-[#384732] border border-[#C6D8C2] px-2.5 py-0.5 rounded-full">
-                  Lớp {user.className}
+                  Lớp {user.className || '9A'}
                 </span>
               </div>
-              <p className="text-xs text-[#5C6B57] mt-0.5">{user.email}</p>
+              <p className="text-xs text-[#5C6B57] mt-0.5 flex items-center gap-1.5 font-medium">
+                <CheckCircle2 className="w-3.5 h-3.5 text-[#4B5D44]" />
+                <span>Tài khoản học sinh Tiếng Anh 9</span>
+              </p>
               <p className="text-[11px] text-[#5C6B57] mt-1">
                 Tham gia: {new Date(user.createdAt).toLocaleDateString('vi-VN')}
               </p>

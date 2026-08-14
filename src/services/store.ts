@@ -366,22 +366,54 @@ class AppStore {
       this.setStorage('vocab_progress', initialVocabMap);
     }
 
-    // Restore active session
+    // Restore active session: prioritize english9_student
+    try {
+      const savedStudent = localStorage.getItem('english9_student');
+      if (savedStudent) {
+        const studentObj = JSON.parse(savedStudent) as UserProfile;
+        if (studentObj && studentObj.id) {
+          const users = this.getUsers();
+          const existing = users.find(u => u.id === studentObj.id);
+          if (!existing) {
+            users.push(studentObj);
+            this.setStorage('users', users);
+          }
+          this.currentUser = studentObj;
+          this.startHeartbeat();
+          return;
+        }
+      }
+    } catch {
+      // ignore
+    }
+
     const savedUser = this.getStorage<UserProfile | null>('current_user', null);
     if (savedUser) {
       this.currentUser = savedUser;
       this.startHeartbeat();
     } else {
-      // Default to Minh Anh for instant demo preview
       const users = this.getUsers();
       const defaultStudent = users.find(u => u.id === 'student-1') || users[1];
-      this.login(defaultStudent.id);
+      if (defaultStudent) {
+        this.login(defaultStudent.id);
+      }
     }
   }
 
   // User Management
   public getUsers(): UserProfile[] {
     return this.getStorage<UserProfile[]>('users', INITIAL_USERS);
+  }
+
+  public addUser(user: UserProfile): void {
+    const users = this.getUsers();
+    const idx = users.findIndex(u => u.id === user.id);
+    if (idx >= 0) {
+      users[idx] = user;
+    } else {
+      users.push(user);
+    }
+    this.setStorage('users', users);
   }
 
   public getCurrentUser(): UserProfile {

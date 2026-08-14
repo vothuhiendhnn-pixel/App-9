@@ -1,8 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { UserProfile, StudentProgress } from './types';
 import { store } from './services/store';
+import { studentService } from './services/studentService';
+import { progressService } from './services/progressService';
+import { googleSheetsService } from './services/googleSheetsService';
 import { Header } from './components/Header';
 import { StudentNav } from './components/StudentNav';
+import { LoginModal } from './components/LoginModal';
+import { GoogleSheetsConfigModal } from './components/GoogleSheetsConfigModal';
 
 // Screens
 import { StudentHomeScreen } from './screens/StudentHomeScreen';
@@ -20,33 +25,69 @@ import { TeacherDashboardScreen } from './screens/TeacherDashboardScreen';
 import { TeacherStudentDetailScreen } from './screens/TeacherStudentDetailScreen';
 
 export default function App() {
-  const [currentUser, setCurrentUser] = useState<UserProfile>(() => store.getCurrentUser());
+  const [currentUser, setCurrentUser] = useState<UserProfile>(() => {
+    const saved = studentService.getCurrentStudent();
+    if (saved) return saved;
+    return store.getCurrentUser();
+  });
   const [allUsers, setAllUsers] = useState<UserProfile[]>(() => store.getUsers());
   const [currentTab, setCurrentTab] = useState<'home' | 'units' | 'review' | 'profile'>('home');
   const [activeUnitNumber, setActiveUnitNumber] = useState<number | null>(null);
   const [activeModule, setActiveModule] = useState<'vocab' | 'grammar' | 'pronunciation' | 'listening' | 'practice' | 'challenge' | null>(null);
   const [selectedStudentForTeacher, setSelectedStudentForTeacher] = useState<string | null>(null);
   const [progress, setProgress] = useState<StudentProgress>(() => store.getStudentProgress(currentUser.id, 1));
+  const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
+  const [isSheetsConfigOpen, setIsSheetsConfigOpen] = useState(false);
 
   // Sync users & progress when user changes
   useEffect(() => {
     store.setCurrentUser(currentUser);
     setProgress(store.getStudentProgress(currentUser.id, 1));
+    setAllUsers(store.getUsers());
   }, [currentUser]);
 
   const handleUpdateProgress = () => {
-    setProgress(store.getStudentProgress(currentUser.id, 1));
-    setCurrentUser(store.getCurrentUser());
+    const freshUser = store.getCurrentUser();
+    setProgress(store.getStudentProgress(freshUser.id, 1));
+    setCurrentUser(freshUser);
     setAllUsers(store.getUsers());
+    // Trigger progress auto-save to cloud
+    progressService.autoSaveStudentProgress(freshUser);
   };
 
-  const handleSwitchUser = (user: UserProfile) => {
-    setCurrentUser(user);
-    store.setCurrentUser(user);
-    setProgress(store.getStudentProgress(user.id, 1));
+  const handleSwitchUser = (userId: string) => {
+    const found = allUsers.find(u => u.id === userId);
+    if (found) {
+      setCurrentUser(found);
+      store.setCurrentUser(found);
+      if (found.role === 'student') {
+        studentService.saveCurrentStudent(found);
+      }
+      setProgress(store.getStudentProgress(found.id, 1));
+      setActiveUnitNumber(null);
+      setActiveModule(null);
+      setSelectedStudentForTeacher(null);
+    }
+  };
+
+  const handleLoginSuccess = (student: UserProfile) => {
+    setCurrentUser(student);
+    store.setCurrentUser(student);
+    setProgress(store.getStudentProgress(student.id, 1));
+    setAllUsers(store.getUsers());
     setActiveUnitNumber(null);
     setActiveModule(null);
-    setSelectedStudentForTeacher(null);
+    setCurrentTab('home');
+  };
+
+  const handleLogout = () => {
+    studentService.logout();
+    const users = store.getUsers();
+    const defaultStudent = users.find(u => u.id === 'student-1') || users[0];
+    if (defaultStudent) {
+      setCurrentUser(defaultStudent);
+    }
+    setIsLoginModalOpen(true);
   };
 
   const handleSelectUnit = (unitNumber: number) => {
@@ -210,9 +251,13 @@ export default function App() {
     <div className="min-h-screen bg-[#F7F3E9] text-[#2D332A] font-sans antialiased flex flex-col selection:bg-[#BC8A5F]/20 selection:text-[#2D332A]">
       {/* Global Header */}
       <Header
-        currentUser={currentUser}
+        user={currentUser}
         allUsers={allUsers}
         onSwitchUser={handleSwitchUser}
+        onLogout={handleLogout}
+        onOpenLoginModal={() => setIsLoginModalOpen(true)}
+        onNavigateProfile={() => handleTabChange('profile')}
+        onOpenSheetsConfig={() => setIsSheetsConfigOpen(true)}
       />
 
       {/* Main Content Body */}
@@ -227,6 +272,20 @@ export default function App() {
           onTabChange={handleTabChange}
         />
       )}
+
+      {/* Login Modal */}
+      <LoginModal
+        isOpen={isLoginModalOpen}
+        onClose={() => setIsLoginModalOpen(false)}
+        onLoginSuccess={handleLoginSuccess}
+      />
+
+      {/* Google Sheets Apps Script Setup / Config Modal */}
+      <GoogleSheetsConfigModal
+        isOpen={isSheetsConfigOpen}
+        onClose={() => setIsSheetsConfigOpen(false)}
+        onSuccess={() => handleUpdateProgress()}
+      />
     </div>
   );
 

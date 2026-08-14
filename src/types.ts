@@ -1,16 +1,88 @@
 export type UserRole = 'student' | 'teacher';
 
+export type SyncStatus = 'synced' | 'syncing' | 'offline' | 'pending';
+
 export interface UserProfile {
-  id: string;
+  id: string; // Phone number for students (e.g., '0912345678')
   role: UserRole;
   name: string;
-  email: string;
+  phone?: string;
+  email?: string;
   className: string;
   xp: number;
   streak: number;
   avatar?: string;
   createdAt: string;
   lastLoginAt: string;
+  overallProgress?: number; // 0-100%
+  vocabularyScore?: number;
+  grammarScore?: number;
+  pronunciationScore?: number;
+  listeningScore?: number;
+  vocabularyProgress?: number;
+  grammarProgress?: number;
+  pronunciationProgress?: number;
+  listeningProgress?: number;
+  lastActivity?: string;
+  syncStatus?: SyncStatus;
+}
+
+// Google Sheets Sync Models
+export interface StudentSheetRecord {
+  studentId: string;
+  name: string;
+  className: string;
+  createdAt: string;
+  lastLogin: string;
+  overallProgress: number;
+  xp: number;
+  streak: number;
+  vocabularyScore: number;
+  grammarScore: number;
+  pronunciationScore: number;
+  listeningScore: number;
+  vocabularyProgress: number;
+  grammarProgress: number;
+  pronunciationProgress: number;
+  listeningProgress: number;
+  lastActivity: string;
+  updatedAt: string;
+}
+
+export interface LearningLogRecord {
+  timestamp: string;
+  studentId: string;
+  name: string;
+  className: string;
+  unit: string | number;
+  skill: string;
+  exercise: string;
+  score: number;
+  correct: number;
+  total: number;
+  passed: boolean;
+  xpEarned: number;
+  attempt: number;
+}
+
+export interface WordReviewRecord {
+  studentId: string;
+  name: string;
+  unit: number;
+  word: string;
+  correctCount: number;
+  wrongCount: number;
+  needsReview: boolean;
+  mastered: boolean;
+  lastPractised?: string;
+}
+
+export interface SyncQueueItem {
+  id: string;
+  type: 'login' | 'progress' | 'result' | 'word_review';
+  payload: any;
+  createdAt: string;
+  retryCount: number;
 }
 
 export type VocabularyStatus = 'new' | 'learning' | 'good' | 'mastered';
