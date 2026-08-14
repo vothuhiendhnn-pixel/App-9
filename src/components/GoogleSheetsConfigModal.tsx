@@ -9,7 +9,7 @@ interface GoogleSheetsConfigModalProps {
   onSuccess?: () => void;
 }
 
-export const GoogleSheetsConfigModal: React.FC<GoogleSheetsConfigModalProps> = ({
+export const GoogleSheetsConfigModal: React.FC<https://script.google.com/macros/s/AKfycbwMx8tUYVen3EGWgAER1IXlse2QeOmt-e4Qe6WE_sGhovNxFhaqvbPAzGsfLUumByymRg/exec> = ({
   isOpen,
   onClose,
   onSuccess,

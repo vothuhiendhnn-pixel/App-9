@@ -17,7 +17,7 @@
  * 7. Sao chép "Web app URL" (có đuôi /exec) và dán vào GOOGLE_SCRIPT_WEB_APP_URL trong app.
  */
 
-export const GOOGLE_APPS_SCRIPT_CODE = `
+export const GOOGLE_APPS_SCRIPT_CODE = `https://script.google.com/macros/s/AKfycbwMx8tUYVen3EGWgAER1IXlse2QeOmt-e4Qe6WE_sGhovNxFhaqvbPAzGsfLUumByymRg/exec
 // ============================================================================
 // ENGLISH 9 - MISS HIEN: GOOGLE SHEETS SYNC BACKEND
 // Sheets: STUDENTS, LEARNING_LOG, WORD_REVIEW

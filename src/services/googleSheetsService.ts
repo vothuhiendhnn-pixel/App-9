@@ -7,7 +7,7 @@ import { SyncStatus, SyncQueueItem } from '../types';
 
 // Web App Executable URL configuration
 // Note: Replace this placeholder with the actual /exec URL once deployed from Google Apps Script.
-export const GOOGLE_SCRIPT_WEB_APP_URL = "PASTE_DEPLOYED_WEB_APP_EXEC_URL_HERE";
+export const GOOGLE_SCRIPT_WEB_APP_URL = https://script.google.com/macros/s/AKfycbwMx8tUYVen3EGWgAER1IXlse2QeOmt-e4Qe6WE_sGhovNxFhaqvbPAzGsfLUumByymRg/exec;
 
 export interface LoginPayload {
   action: 'login';
