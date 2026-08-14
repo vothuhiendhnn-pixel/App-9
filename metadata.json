@@ -1,0 +1,6 @@
+{
+  "name": "English 9 - Miss Hien",
+  "description": "A cute, modern, responsive educational web app for Vietnamese Grade 9 students studying English 9 - Global Success, featuring student learning modules, spaced repetition, mistake tracking, and a comprehensive teacher dashboard.",
+  "requestFramePermissions": ["microphone"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
