@@ -1,8 +1,14 @@
 import React, { useState } from 'react';
 import { UserProfile } from '../types';
-import { studentService, LoginFormErrors } from '../services/studentService';
-import { googleSheetsService } from '../services/googleSheetsService';
-import { X, User, Phone, Sparkles, Loader2, ShieldAlert } from 'lucide-react';
+import { studentService } from '../services/studentService';
+import {
+  X,
+  UserRound,
+  LockKeyhole,
+  Sparkles,
+  Loader2,
+  ShieldAlert,
+} from 'lucide-react';
 
 interface LoginModalProps {
   isOpen: boolean;
@@ -15,10 +21,8 @@ export const LoginModal: React.FC<LoginModalProps> = ({
   onClose,
   onLoginSuccess,
 }) => {
-  const [name, setName] = useState('');
-  const [phone, setPhone] = useState('');
-  const [className, setClassName] = useState('9A');
-  const [errors, setErrors] = useState<LoginFormErrors>({});
+  const [studentCode, setStudentCode] = useState('');
+  const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
 
@@ -28,25 +32,28 @@ export const LoginModal: React.FC<LoginModalProps> = ({
     e.preventDefault();
     setServerError(null);
 
-    // Validation
-    const validation = studentService.validateLoginForm(name, phone);
-    if (!validation.isValid) {
-      setErrors(validation.errors);
+    if (!studentCode.trim() || !password.trim()) {
+      setServerError('Vui lòng nhập mã học sinh và mật khẩu.');
       return;
     }
-    setErrors({});
+
     setIsLoading(true);
 
     try {
-      const result = await studentService.login(name, phone, className);
+      const result = await studentService.login(studentCode, password);
+
       if (result.success && result.student) {
         onLoginSuccess(result.student);
         onClose();
       } else {
-        setServerError(result.error || 'Có lỗi xảy ra khi đăng nhập. Vui lòng thử lại.');
+        setServerError(
+          result.error || 'Có lỗi xảy ra khi đăng nhập. Vui lòng thử lại.'
+        );
       }
     } catch {
-      setServerError('Không thể kết nối. Vui lòng kiểm tra lại đường truyền mạng.');
+      setServerError(
+        'Không thể kết nối. Vui lòng kiểm tra lại đường truyền mạng.'
+      );
     } finally {
       setIsLoading(false);
     }
@@ -55,7 +62,6 @@ export const LoginModal: React.FC<LoginModalProps> = ({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-in fade-in duration-200">
       <div className="relative w-full max-w-md bg-[#FFFDF9] rounded-3xl border border-[#E8DFC8] shadow-2xl overflow-hidden p-6 sm:p-8">
-        {/* Close Button */}
         <button
           type="button"
           onClick={onClose}
@@ -65,7 +71,6 @@ export const LoginModal: React.FC<LoginModalProps> = ({
           <X className="w-5 h-5" />
         </button>
 
-        {/* Header */}
         <div className="text-center mb-6">
           <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-[#E8EFE6] border border-[#C6D8C2] text-[#4B5D44] mb-3 shadow-xs">
             <span className="text-2xl">👋</span>
@@ -78,7 +83,6 @@ export const LoginModal: React.FC<LoginModalProps> = ({
           </p>
         </div>
 
-        {/* Server Alert if any */}
         {serverError && (
           <div className="mb-5 p-3.5 bg-[#FDF2F0] border border-[#F5C7C0] rounded-2xl flex items-start gap-2.5 text-xs text-[#A64B3B] font-medium">
             <ShieldAlert className="w-4 h-4 text-[#A64B3B] shrink-0 mt-0.5" />
@@ -86,97 +90,58 @@ export const LoginModal: React.FC<LoginModalProps> = ({
           </div>
         )}
 
-        {/* Form */}
         <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Họ và tên */}
           <div>
-            <label className="block text-xs font-bold text-[#2D332A] uppercase tracking-wider mb-1.5">
-              Họ và tên <span className="text-red-500">*</span>
+            <label
+              htmlFor="student-code"
+              className="block text-xs font-bold text-[#2D332A] uppercase tracking-wider mb-1.5"
+            >
+              Mã học sinh <span className="text-red-500">*</span>
             </label>
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-[#7D8876]">
-                <User className="w-4 h-4" />
+                <UserRound className="w-4 h-4" />
               </div>
               <input
+                id="student-code"
                 type="text"
-                value={name}
-                onChange={(e) => {
-                  setName(e.target.value);
-                  if (errors.name) setErrors({ ...errors, name: undefined });
-                }}
-                placeholder="Ví dụ: Nguyễn Minh Anh"
-                className={`w-full pl-10 pr-4 py-3 bg-white border ${
-                  errors.name ? 'border-red-400 focus:ring-red-200' : 'border-[#DDD4C3] focus:border-[#4B5D44] focus:ring-[#4B5D44]/20'
-                } rounded-2xl text-sm font-medium text-[#2D332A] placeholder-[#9E9B93] focus:outline-hidden focus:ring-3 transition-all`}
+                value={studentCode}
+                onChange={(e) => setStudentCode(e.target.value)}
+                placeholder="Ví dụ: HS9A1-10"
+                className="w-full pl-10 pr-4 py-3 bg-white border border-[#DDD4C3] focus:border-[#4B5D44] focus:ring-[#4B5D44]/20 rounded-2xl text-sm font-medium text-[#2D332A] placeholder-[#9E9B93] focus:outline-hidden focus:ring-3 transition-all"
                 autoFocus
+                autoComplete="username"
                 disabled={isLoading}
+                required
               />
             </div>
-            {errors.name && (
-              <p className="text-xs text-red-500 font-semibold mt-1 pl-1">
-                {errors.name}
-              </p>
-            )}
           </div>
 
-          {/* Số điện thoại */}
           <div>
-            <label className="block text-xs font-bold text-[#2D332A] uppercase tracking-wider mb-1.5">
-              Số điện thoại <span className="text-red-500">*</span>
+            <label
+              htmlFor="student-password"
+              className="block text-xs font-bold text-[#2D332A] uppercase tracking-wider mb-1.5"
+            >
+              Mật khẩu <span className="text-red-500">*</span>
             </label>
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-[#7D8876]">
-                <Phone className="w-4 h-4" />
+                <LockKeyhole className="w-4 h-4" />
               </div>
               <input
-                type="tel"
-                inputMode="numeric"
-                value={phone}
-                onChange={(e) => {
-                  setPhone(e.target.value);
-                  if (errors.phone) setErrors({ ...errors, phone: undefined });
-                }}
-                placeholder="Ví dụ: 0912345678"
-                className={`w-full pl-10 pr-4 py-3 bg-white border ${
-                  errors.phone ? 'border-red-400 focus:ring-red-200' : 'border-[#DDD4C3] focus:border-[#4B5D44] focus:ring-[#4B5D44]/20'
-                } rounded-2xl text-sm font-medium text-[#2D332A] placeholder-[#9E9B93] focus:outline-hidden focus:ring-3 transition-all`}
+                id="student-password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Nhập mật khẩu"
+                className="w-full pl-10 pr-4 py-3 bg-white border border-[#DDD4C3] focus:border-[#4B5D44] focus:ring-[#4B5D44]/20 rounded-2xl text-sm font-medium text-[#2D332A] placeholder-[#9E9B93] focus:outline-hidden focus:ring-3 transition-all"
+                autoComplete="current-password"
                 disabled={isLoading}
+                required
               />
             </div>
-            {errors.phone && (
-              <p className="text-xs text-red-500 font-semibold mt-1 pl-1">
-                {errors.phone}
-              </p>
-            )}
-            <p className="text-[11px] text-[#7D8876] mt-1 pl-1">
-              Số điện thoại dùng để nhận diện và khôi phục điểm của em (không hiển thị công khai).
-            </p>
           </div>
 
-          {/* Lớp */}
-          <div>
-            <label className="block text-xs font-bold text-[#2D332A] uppercase tracking-wider mb-1.5">
-              Lớp học
-            </label>
-            <div className="grid grid-cols-4 gap-2">
-              {['9A', '9B', '9C', '9D'].map((c) => (
-                <button
-                  type="button"
-                  key={c}
-                  onClick={() => setClassName(c)}
-                  className={`py-2 text-xs font-bold rounded-xl border transition-all ${
-                    className === c
-                      ? 'bg-[#4B5D44] text-white border-[#4B5D44] shadow-xs'
-                      : 'bg-white text-[#5C6B57] border-[#DDD4C3] hover:bg-[#F7F3E9]'
-                  }`}
-                >
-                  {c}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Submit Button */}
           <button
             type="submit"
             id="btn-start-learning"
@@ -197,10 +162,9 @@ export const LoginModal: React.FC<LoginModalProps> = ({
           </button>
         </form>
 
-        {/* Sync Guarantee footer */}
         <div className="mt-5 pt-4 border-t border-[#F0EAE1] text-center">
           <p className="text-[11px] text-[#7D8876]">
-            🔒 Không cần email • Không cần mật khẩu • Dữ liệu đồng bộ an toàn
+            Dùng mã học sinh và mật khẩu được cấp để đăng nhập.
           </p>
         </div>
       </div>

@@ -5,6 +5,7 @@
  */
 
 import { UserProfile } from '../types';
+import { supabase } from '../lib/supabaseClient';
 import { googleSheetsService } from './googleSheetsService';
 import { store } from './store';
 
@@ -109,36 +110,58 @@ class StudentService {
    * 4. Call Apps Script to create or load server profile
    * 5. Save session
    */
-  public async login(
-    name: string,
-    phone: string,
-    className: string = '9A'
-  ): Promise<{ success: boolean; student?: UserProfile; isNew?: boolean; message?: string; error?: string }> {
-    const trimmedName = name.trim();
-    const studentId = this.normalizePhoneNumber(phone);
+   public async login(
+    studentCode: string,
+    password: string,
+    _className: string = '9A'
+  ): Promise<{
+    success: boolean;
+    student?: UserProfile;
+    isNew?: boolean;
+    message?: string;
+    error?: string;
+  }> {
+    const code = studentCode.trim();
+    const pass = password.trim();
 
-    const validation = this.validateLoginForm(trimmedName, phone);
-    if (!validation.isValid) {
+    if (!code || !pass) {
       return {
         success: false,
-        error: validation.errors.name || validation.errors.phone || 'Thông tin chưa hợp lệ.',
+        error: 'Vui lòng nhập mã học sinh và mật khẩu.',
       };
     }
 
-    // 1. Check existing local users in store
-    const localUsers = store.getUsers();
-    let student = localUsers.find(u => u.id === studentId);
+    try {
+      const { data, error } = await supabase.rpc('student_login', {
+        p_student_code: code,
+        p_password: pass,
+      });
 
-    const nowIso = new Date().toISOString();
+      if (error) {
+        console.error('Supabase login error:', error);
+        return {
+          success: false,
+          error: 'Không thể kết nối hệ thống. Vui lòng thử lại.',
+        };
+      }
 
-    if (!student) {
-      // New student record initialization
-      student = {
-        id: studentId,
+      const result = Array.isArray(data) ? data[0] : data;
+
+      if (!result) {
+        return {
+          success: false,
+          error: 'Mã học sinh hoặc mật khẩu không đúng.',
+        };
+      }
+
+      const nowIso = new Date().toISOString();
+
+      const student: UserProfile = {
+        id: result.student_id,
         role: 'student',
-        name: trimmedName,
-        phone: studentId,
-        className: className || '9A',
+        name: result.full_name,
+        phone: result.student_code,
+        className: result.class_name || '9A',
         xp: 0,
         streak: 1,
         createdAt: nowIso,
@@ -153,69 +176,47 @@ class StudentService {
         pronunciationProgress: 0,
         listeningProgress: 0,
         lastActivity: 'Đăng nhập',
-        syncStatus: 'syncing',
+        syncStatus: 'synced',
       };
-      store.addUser(student);
-    } else {
-      // Update name and login time
-      student.name = trimmedName;
-      student.lastLoginAt = nowIso;
-      student.syncStatus = 'syncing';
-      store.updateUser(student);
-    }
 
-    // Set current active user in store and session storage
-    store.setCurrentUser(student);
-    this.saveCurrentStudent(student);
+      const localUsers = store.getUsers();
+      const existingStudent = localUsers.find(
+        user => user.id === student.id
+      );
 
-    // 2. Call Google Sheets Backend
-    try {
-      const serverRes = await googleSheetsService.login(studentId, trimmedName, className);
-      if (serverRes.success && serverRes.data && serverRes.data.student) {
-        const serverStudent = serverRes.data.student;
-        // Merge server data with local state if server has historical progress
-        student = {
-          ...student,
-          name: serverStudent.name || student.name,
-          className: serverStudent.className || student.className,
-          createdAt: serverStudent.createdAt || student.createdAt,
-          xp: typeof serverStudent.xp === 'number' ? Math.max(student.xp, serverStudent.xp) : student.xp,
-          streak: typeof serverStudent.streak === 'number' ? Math.max(student.streak, serverStudent.streak) : student.streak,
-          overallProgress: typeof serverStudent.overallProgress === 'number' ? serverStudent.overallProgress : student.overallProgress,
-          vocabularyScore: serverStudent.vocabularyScore ?? student.vocabularyScore,
-          grammarScore: serverStudent.grammarScore ?? student.grammarScore,
-          pronunciationScore: serverStudent.pronunciationScore ?? student.pronunciationScore,
-          listeningScore: serverStudent.listeningScore ?? student.listeningScore,
-          vocabularyProgress: serverStudent.vocabularyProgress ?? student.vocabularyProgress,
-          grammarProgress: serverStudent.grammarProgress ?? student.grammarProgress,
-          pronunciationProgress: serverStudent.pronunciationProgress ?? student.pronunciationProgress,
-          listeningProgress: serverStudent.listeningProgress ?? student.listeningProgress,
+      if (existingStudent) {
+        Object.assign(student, existingStudent, {
+          id: result.student_id,
+          role: 'student',
+          name: result.full_name,
+          phone: result.student_code,
+          className: result.class_name || existingStudent.className,
+          lastLoginAt: nowIso,
           syncStatus: 'synced',
-        };
+        });
 
         store.updateUser(student);
-        this.saveCurrentStudent(student);
-
-        return {
-          success: true,
-          student,
-          isNew: serverRes.data.isNew,
-          message: serverRes.data.isNew ? 'Chào mừng em tham gia English 9!' : 'Chào mừng em quay trở lại!',
-        };
+      } else {
+        store.addUser(student);
       }
-    } catch {
-      // Offline fallback: keep local data
-      student.syncStatus = 'pending';
-      store.updateUser(student);
-      this.saveCurrentStudent(student);
-    }
 
-    return {
-      success: true,
-      student,
-      isNew: false,
-      message: 'Đăng nhập thành công (chế độ ngoại tuyến).',
-    };
+      store.setCurrentUser(student);
+      this.saveCurrentStudent(student);
+
+      return {
+        success: true,
+        student,
+        isNew: false,
+        message: `Chào mừng ${student.name} quay trở lại!`,
+      };
+    } catch (error) {
+      console.error('Student login error:', error);
+
+      return {
+        success: false,
+        error: 'Đăng nhập thất bại. Vui lòng thử lại.',
+      };
+    }
   }
 
   /**
