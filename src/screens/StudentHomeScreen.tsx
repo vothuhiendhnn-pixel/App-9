@@ -2,7 +2,6 @@ import React from 'react';
 import { UserProfile, StudentProgress } from '../types';
 import { ProgressBar } from '../components/ProgressBar';
 import { studentService } from '../services/studentService';
-import { googleSheetsService } from '../services/googleSheetsService';
 import {
   BookOpen,
   Sparkles,

@@ -1,12 +1,11 @@
 /**
  * STUDENT SERVICE FOR "ENGLISH 9 - MISS HIEN"
  * Handles student authentication via Full Name + Phone Number (studentId),
- * local session storage, profile updates, and Google Sheets synchronization.
+ * local session storage and Supabase RPC authentication.
  */
 
 import { UserProfile } from '../types';
 import { supabase } from '../lib/supabaseClient';
-import { googleSheetsService } from './googleSheetsService';
 import { store } from './store';
 
 const STUDENT_STORAGE_KEY = 'english9_student';
@@ -110,7 +109,7 @@ class StudentService {
    * 4. Call Apps Script to create or load server profile
    * 5. Save session
    */
-   public async login(
+  public async login(
     studentCode: string,
     password: string,
     _className: string = '9A'
@@ -132,16 +131,27 @@ class StudentService {
     }
 
     try {
-      const { data, error } = await supabase.rpc('student_login', {
-        p_student_code: code,
-        p_password: pass,
-      });
+      // Abort unresponsive login requests instead of hanging indefinitely.
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 12000);
+      let data: any;
+      let error: any;
+      try {
+        const response = await supabase.rpc('student_login', {
+          p_student_code: code,
+          p_password: pass,
+        }, { signal: controller.signal });
+        data = response.data;
+        error = response.error;
+      } finally {
+        clearTimeout(timer);
+      }
 
       if (error) {
         console.error('Supabase login error:', error);
         return {
           success: false,
-          error: 'Không thể kết nối hệ thống. Vui lòng thử lại.',
+          error: 'Không thể xác thực tài khoản. Kiểm tra kết nối mạng hoặc liên hệ giáo viên.',
         };
       }
 
@@ -214,7 +224,9 @@ class StudentService {
 
       return {
         success: false,
-        error: 'Đăng nhập thất bại. Vui lòng thử lại.',
+        error: error instanceof Error && error.name === 'AbortError'
+          ? 'Kết nối quá thời gian (12 giây). Vui lòng thử lại hoặc đổi mạng.'
+          : 'Đăng nhập thất bại. Vui lòng kiểm tra mạng rồi thử lại.',
       };
     }
   }
@@ -232,37 +244,12 @@ class StudentService {
   }
 
   /**
-   * Refreshes student data from Google Sheets
+   * Remote profile refresh intentionally disabled until a secured Supabase
+   * endpoint exists. Never overwrite local progress with unverified data.
    */
   public async syncWithServer(studentId: string): Promise<UserProfile | null> {
     const student = this.getCurrentStudent();
-    if (!student || student.id !== studentId) return null;
-
-    try {
-      const res = await googleSheetsService.getStudent(studentId);
-      if (res.success && res.data && res.data.student) {
-        const s = res.data.student;
-        const updated: UserProfile = {
-          ...student,
-          name: s.name || student.name,
-          className: s.className || student.className,
-          xp: Math.max(student.xp, s.xp || 0),
-          streak: Math.max(student.streak, s.streak || 1),
-          overallProgress: s.overallProgress ?? student.overallProgress,
-          vocabularyScore: s.vocabularyScore ?? student.vocabularyScore,
-          grammarScore: s.grammarScore ?? student.grammarScore,
-          pronunciationScore: s.pronunciationScore ?? student.pronunciationScore,
-          listeningScore: s.listeningScore ?? student.listeningScore,
-          syncStatus: 'synced',
-        };
-        store.updateUser(updated);
-        this.saveCurrentStudent(updated);
-        return updated;
-      }
-    } catch {
-      // ignore
-    }
-    return student;
+    return student?.id === studentId ? student : null;
   }
 }
 

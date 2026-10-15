@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { UserProfile, SyncStatus } from '../types';
+import { UserProfile } from '../types';
 import { studentService } from '../services/studentService';
-import { googleSheetsService } from '../services/googleSheetsService';
 import {
   Flame,
   Sparkles,
@@ -24,7 +23,6 @@ interface HeaderProps {
   onLogout: () => void;
   onOpenLoginModal: () => void;
   onNavigateProfile?: () => void;
-  onOpenSheetsConfig?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -34,38 +32,14 @@ export const Header: React.FC<HeaderProps> = ({
   onLogout,
   onOpenLoginModal,
   onNavigateProfile,
-  onOpenSheetsConfig,
 }) => {
   const [showDropdown, setShowDropdown] = useState(false);
-  const [syncStatus, setSyncStatus] = useState<SyncStatus>(googleSheetsService.getSyncStatus());
-  const [isManualSyncing, setIsManualSyncing] = useState(false);
   const [syncToast, setSyncToast] = useState<string | null>(null);
-
-  useEffect(() => {
-    const unsub = googleSheetsService.subscribeStatus((status) => {
-      setSyncStatus(status);
-    });
-    return unsub;
-  }, []);
-
+  const syncStatus = 'pending' as const;
+  const isManualSyncing = false;
   const handleManualSync = async () => {
-    setIsManualSyncing(true);
-    try {
-      if (user && user.role === 'student') {
-        await studentService.syncWithServer(user.id);
-      }
-      const count = await googleSheetsService.processQueue();
-      if (googleSheetsService.isConfigured()) {
-        setSyncToast('✓ Đã đồng bộ kết quả học tập.');
-      } else {
-        setSyncToast('☁️ Kết quả đã được lưu trên thiết bị. App sẽ đồng bộ lại khi có kết nối.');
-      }
-    } catch {
-      setSyncToast('☁️ Kết quả đã được lưu trên thiết bị. App sẽ đồng bộ lại khi có kết nối.');
-    } finally {
-      setIsManualSyncing(false);
-      setTimeout(() => setSyncToast(null), 3500);
-    }
+    setSyncToast('Tiến độ đang lưu trên thiết bị. Chưa cấu hình đồng bộ Supabase an toàn.');
+    setTimeout(() => setSyncToast(null), 4500);
   };
 
   const displayName = user ? studentService.getStudentDisplayName(user.name) : '';
@@ -231,24 +205,10 @@ export const Header: React.FC<HeaderProps> = ({
                           <span>Đồng bộ dữ liệu</span>
                         </div>
                         <span className="text-[10px] text-[#7D8876]">
-                          {syncStatus === 'synced' ? 'Đã đồng bộ' : 'Chưa đồng bộ'}
+                          Chưa đồng bộ
                         </span>
                       </button>
 
-                      {/* Cấu hình Google Sheets */}
-                      {onOpenSheetsConfig && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setShowDropdown(false);
-                            onOpenSheetsConfig();
-                          }}
-                          className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-left text-xs font-semibold text-[#5C6B57] hover:bg-[#FAF7F2] transition-colors cursor-pointer"
-                        >
-                          <Settings className="w-4 h-4 text-[#5C6B57]" />
-                          <span>Cấu hình Google Sheets</span>
-                        </button>
-                      )}
                     </div>
 
                     {/* Switch role/demo user if teacher */}

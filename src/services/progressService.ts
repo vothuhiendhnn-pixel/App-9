@@ -1,11 +1,10 @@
 /**
  * PROGRESS SERVICE FOR "ENGLISH 9 - MISS HIEN"
  * Handles calculation of student overall progress, skill scores,
- * auto-saving learning log results, word reviews, and sync to Google Sheets.
+ * local progress persistence. Supabase upload requires a secure server RPC.
  */
 
 import { UserProfile, VocabPracticeResult, ListeningAssessmentResult } from '../types';
-import { googleSheetsService } from './googleSheetsService';
 import { studentService } from './studentService';
 import { store } from './store';
 
@@ -77,7 +76,7 @@ class ProgressService {
   }
 
   /**
-   * Auto-save full student progress to Google Sheets (STUDENTS sheet)
+   * Save local student progress (cloud persistence pending secure endpoint)
    */
   public async autoSaveStudentProgress(student: UserProfile, lastActivityDescription?: string) {
     if (!student || !student.id) return;
@@ -93,28 +92,18 @@ class ProgressService {
       lastLoginAt: new Date().toISOString(),
     };
 
-    // Update local storage and store
+    // Progress remains local until secured Supabase persistence is configured.
+    // Never report a successful cloud sync without confirmation.
+    updatedStudent.syncStatus = 'pending';
     store.updateUser(updatedStudent);
     studentService.saveCurrentStudent(updatedStudent);
-
-    // Call Google Sheets
-    await googleSheetsService.saveProgress({
-      studentId: student.id,
-      name: student.name,
-      className: student.className || '9A',
-      overallProgress,
-      xp: student.xp,
-      streak: student.streak,
-      ...skillScores,
-      lastActivity: lastActivityDescription || 'Học bài',
-    });
   }
 
   /**
-   * Auto-save exercise completion to LEARNING_LOG sheet and update STUDENTS summary
+   * Update local exercise summary (cloud persistence pending)
    */
   public async recordExerciseResult(payload: ExerciseResultPayload) {
-    const { student, unit, skill, exercise, score, correct, total, passed, xpEarned, attempt = 1 } = payload;
+    const { student, unit, skill, exercise, score, xpEarned } = payload;
     if (!student || !student.id) return;
 
     // 1. Award XP to student in local store
@@ -122,47 +111,25 @@ class ProgressService {
       store.addXP(student.id, xpEarned);
     }
 
-    // 2. Save result to Google Apps Script (LEARNING_LOG sheet)
-    const logPromise = googleSheetsService.saveResult({
-      studentId: student.id,
-      name: student.name,
-      className: student.className || '9A',
-      unit: unit,
-      skill: skill,
-      exercise: exercise,
-      score: score,
-      correct: correct,
-      total: total,
-      passed: passed,
-      xpEarned: xpEarned,
-      attempt: attempt,
-    });
-
+    // Exercise details are already recorded locally by the exercise modules.
+    // Cloud submission requires a verified, authenticated Supabase endpoint.
     // 3. Auto-save student progress summary
     const freshUser = store.getUsers().find(u => u.id === student.id) || student;
     const actDesc = `${skill} Unit ${unit}: ${exercise} (${score}đ)`;
     await this.autoSaveStudentProgress(freshUser, actDesc);
 
-    await logPromise;
   }
 
   /**
-   * Auto-save word review state to WORD_REVIEW sheet
+   * Word review hook (cloud persistence pending)
    */
   public async recordWordReview(payload: WordReviewPayload) {
     const { student, unit, word, correctCount, wrongCount, needsReview, mastered } = payload;
     if (!student || !student.id) return;
 
-    await googleSheetsService.saveWordReview({
-      studentId: student.id,
-      name: student.name,
-      unit,
-      word,
-      correctCount,
-      wrongCount,
-      needsReview,
-      mastered,
-    });
+    // Word-review state is stored by the local store. No external write yet.
+    void unit; void word; void correctCount; void wrongCount;
+    void needsReview; void mastered;
   }
 
   /**

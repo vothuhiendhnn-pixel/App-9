@@ -3,11 +3,9 @@ import { UserProfile, StudentProgress } from './types';
 import { store } from './services/store';
 import { studentService } from './services/studentService';
 import { progressService } from './services/progressService';
-import { googleSheetsService } from './services/googleSheetsService';
 import { Header } from './components/Header';
 import { StudentNav } from './components/StudentNav';
 import { LoginModal } from './components/LoginModal';
-import { GoogleSheetsConfigModal } from './components/GoogleSheetsConfigModal';
 
 // Screens
 import { StudentHomeScreen } from './screens/StudentHomeScreen';
@@ -37,7 +35,6 @@ export default function App() {
   const [selectedStudentForTeacher, setSelectedStudentForTeacher] = useState<string | null>(null);
   const [progress, setProgress] = useState<StudentProgress>(() => store.getStudentProgress(currentUser.id, 1));
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
-  const [isSheetsConfigOpen, setIsSheetsConfigOpen] = useState(false);
 
   // Sync users & progress when user changes
   useEffect(() => {
@@ -257,7 +254,6 @@ export default function App() {
         onLogout={handleLogout}
         onOpenLoginModal={() => setIsLoginModalOpen(true)}
         onNavigateProfile={() => handleTabChange('profile')}
-        onOpenSheetsConfig={() => setIsSheetsConfigOpen(true)}
       />
 
       {/* Main Content Body */}
@@ -268,8 +264,9 @@ export default function App() {
       {/* Student Bottom Navigation (Only visible for students) */}
       {currentUser.role === 'student' && (
         <StudentNav
-          activeTab={activeTabName()}
-          onTabChange={handleTabChange}
+          currentTab={activeTabName()}
+          onSelectTab={(tab) => handleTabChange(tab as 'home' | 'units' | 'review' | 'profile')}
+          role={currentUser.role}
         />
       )}
 
@@ -280,12 +277,6 @@ export default function App() {
         onLoginSuccess={handleLoginSuccess}
       />
 
-      {/* Google Sheets Apps Script Setup / Config Modal */}
-      <GoogleSheetsConfigModal
-        isOpen={isSheetsConfigOpen}
-        onClose={() => setIsSheetsConfigOpen(false)}
-        onSuccess={() => handleUpdateProgress()}
-      />
     </div>
   );
 
