@@ -7,6 +7,7 @@
 import { UserProfile, VocabPracticeResult, ListeningAssessmentResult } from '../types';
 import { studentService } from './studentService';
 import { store } from './store';
+import { supabase } from '../lib/supabaseClient';
 
 export interface ExerciseResultPayload {
   student: UserProfile;
@@ -64,10 +65,10 @@ class ProgressService {
     const u1Prog = store.getStudentProgress(studentId, 1);
 
     return {
-      vocabularyScore: vocabScore || (u1Prog.vocabularyProgress > 0 ? 85 : 0),
-      grammarScore: grammarScore || (u1Prog.grammarProgress > 0 ? 80 : 0),
-      pronunciationScore: pronScore || (u1Prog.pronunciationProgress > 0 ? 80 : 0),
-      listeningScore: listeningScore || (u1Prog.practiceProgress > 0 ? 85 : 0),
+      vocabularyScore: vocabScore,
+      grammarScore: grammarScore,
+      pronunciationScore: pronScore,
+      listeningScore: listeningScore,
       vocabularyProgress: u1Prog.vocabularyProgress,
       grammarProgress: u1Prog.grammarProgress,
       pronunciationProgress: u1Prog.pronunciationProgress,
@@ -100,24 +101,60 @@ class ProgressService {
   }
 
   /**
-   * Update local exercise summary (cloud persistence pending)
+   * Store one completed exercise on Supabase. Each call creates one submission.
+   * Browser-calculated scores remain UNVERIFIED pending trusted server grading.
+   * The RLS INSERT policy must require students.user_id = auth.uid().
    */
-  public async recordExerciseResult(payload: ExerciseResultPayload) {
-    const { student, unit, skill, exercise, score, xpEarned } = payload;
-    if (!student || !student.id) return;
+  public async recordExerciseResult(payload: ExerciseResultPayload): Promise<void> {
+    const { student, unit, skill, exercise, score, correct, total, passed, xpEarned, attempt } = payload;
+    if (!student?.id) throw new Error('Không tìm thấy học sinh.');
 
-    // 1. Award XP to student in local store
-    if (xpEarned > 0) {
-      store.addXP(student.id, xpEarned);
+    const { data: sessionData, error: sessionError } = await supabase.auth.getUser();
+    if (sessionError || !sessionData.user) {
+      throw new Error('Chưa có phiên Supabase Auth. Vui lòng đăng nhập lại để nộp bài.');
     }
 
-    // Exercise details are already recorded locally by the exercise modules.
-    // Cloud submission requires a verified, authenticated Supabase endpoint.
-    // 3. Auto-save student progress summary
-    const freshUser = store.getUsers().find(u => u.id === student.id) || student;
-    const actDesc = `${skill} Unit ${unit}: ${exercise} (${score}đ)`;
-    await this.autoSaveStudentProgress(freshUser, actDesc);
+    // Verify the Auth user owns the student profile before attempting INSERT.
+    const { data: studentRow, error: studentError } = await supabase
+      .from('students')
+      .select('id, user_id, active')
+      .eq('id', student.id)
+      .eq('user_id', sessionData.user.id)
+      .single();
+    if (studentError || !studentRow || studentRow.active === false) {
+      throw new Error('Tài khoản không có quyền nộp bài cho học sinh này.');
+    }
 
+    const submission = {
+      student_id: student.id,
+      submitted_by: sessionData.user.id,
+      activity_id: `${skill.toLowerCase()}-u${unit}-${exercise}`,
+      activity_type: skill.toLowerCase(),
+      unit_number: unit,
+      answers: {
+        exercise,
+        correct,
+        total,
+        passed,
+        attempt: attempt ?? null,
+        xpEarned,
+        clientReportedScore: score,
+        // These are only summary statistics. Answer-level data is not present
+        // in ExerciseResultPayload, so do not claim full answers were captured.
+      },
+      // Browser scores must never be accepted as verified teacher grades.
+      grading_status: 'pending',
+    };
+    const { error: insertError } = await supabase.from('submissions').insert(submission);
+    if (insertError) {
+      console.error('Supabase submission failure:', insertError);
+      throw new Error(`Chưa lưu được bài lên Supabase: ${insertError.message}`);
+    }
+
+    // Update local display only after server has acknowledged the submission.
+    // Do not award XP twice: store.recordQuizAttempt already awards XP.
+    const freshUser = store.getUsers().find(u => u.id === student.id) || student;
+    await this.autoSaveStudentProgress(freshUser, `${skill} Unit ${unit}: ${exercise} (đã nộp)`);
   }
 
   /**
