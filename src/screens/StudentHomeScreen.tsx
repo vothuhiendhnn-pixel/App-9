@@ -1,3 +1,4 @@
+import { StudentPillars } from '../components/StudentPillars';
 import React from 'react';
 import { UserProfile, StudentProgress } from '../types';
 import { ProgressBar } from '../components/ProgressBar';
