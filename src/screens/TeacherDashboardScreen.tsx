@@ -1,3 +1,4 @@
+import { createClient } from '@supabase/supabase-js';
 import React, { useState } from 'react';
 import { UserProfile } from '../types';
 import { store } from '../services/store';
@@ -28,7 +29,7 @@ export const TeacherDashboardScreen: React.FC<TeacherDashboardScreenProps> = ({
   onSelectStudent,
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedClass, setSelectedClass] = useState('All');
+  const [selectedClass, setSelectedClass] = useState([]);
   const [scoreFilter, setScoreFilter] = useState('All');
   const [sortBy, setSortBy] = useState<'loginCount' | 'avgScore' | 'highestScore' | 'progress' | 'xp' | 'lastLogin'>('avgScore');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
@@ -87,6 +88,40 @@ export const TeacherDashboardScreen: React.FC<TeacherDashboardScreenProps> = ({
     document.body.removeChild(link);
     setShowExportMenu(false);
   };
+  React.useEffect(() => {
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
+    const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+    if (!supabaseUrl || !supabaseKey) return;
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
+    const fetchRealData = async () => {
+      try {
+        const { data, error } = await supabase.from('students').select('*').order('created_at', { ascending: false });
+        if (data && data.length > 0) {
+          const mapped = data.map((s, i) => ({
+            id: s.id || String(i),
+            name: s.full_name || s.name || s.student_code || 'Học sinh',
+            email: (s.student_code ? s.student_code.toLowerCase() : 'hs') + '@student.edu.vn',
+            class: '9A1',
+            visits: s.visits || 1,
+            lastActive: s.last_login || s.created_at || new Date().toISOString(),
+            completedLessons: s.completed_lessons || 0,
+            avgScore: s.avg_score || 0,
+            highScore: s.high_score || 0,
+            xp: s.xp || 0,
+            progress: s.progress || 0,
+            status: 'Hoạt động'
+          }));
+          setSelectedClass(mapped);
+        } else {
+          setSelectedClass([]);
+        }
+      } catch (err) {
+        console.error("Lỗi Supabase:", err);
+      }
+    };
+    fetchRealData();
+  }, []);
 
   return (
     <div className="space-y-6 pb-24 max-w-6xl mx-auto px-4 pt-4 sm:px-6">
