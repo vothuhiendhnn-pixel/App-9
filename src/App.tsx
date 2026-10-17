@@ -250,6 +250,9 @@ export default function App() {
     }
   };
 
+  if (currentUser?.role === "teacher") {
+  return <TeacherDashboardScreen user={currentUser} onBack={() => { store.setCurrentUser(null); setCurrentUser(null); setIsLoginOpen(true); }} />;
+}
   return (
     <div className="min-h-screen bg-[#F7F3E9] text-[#2D332A] font-sans antialiased flex flex-col selection:bg-[#BC8A5F]/20 selection:text-[#2D332A]">
       {/* Global Header */}
