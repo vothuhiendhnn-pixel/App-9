@@ -237,9 +237,9 @@ export const TeacherDashboardScreen: React.FC<TeacherDashboardScreenProps> = ({
               className="bg-[#FAF7F2] border border-[#E5DDD0] rounded-xl px-3 py-2 text-xs font-bold text-[#2D332A] focus:outline-hidden"
             >
               <option value="All">Tất cả (Khối 9)</option>
-              <option value="9A">Lớp 9A</option>
-              <option value="9B">Lớp 9B</option>
-              <option value="9C">Lớp 9C</option>
+              <option value='9A1'>Lớp 9A1</option>
+              
+              
             </select>
           </div>
 
