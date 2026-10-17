@@ -42,7 +42,7 @@ export const StudentHomeScreen: React.FC<StudentHomeScreenProps> = ({
   onNavigateReview,
   onNavigateUnits,
 }) => {
-  const [activeTab, setActiveTab] = React.useState('home');
+  const [activeTab, setActiveTab] = React.useState('units');
   const firstName = studentService.getStudentDisplayName(user.name);
 
   const handleGoModule = (mod: 'vocab' | 'grammar' | 'pronunciation' | 'listening' | 'practice') => {

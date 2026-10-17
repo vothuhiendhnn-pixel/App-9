@@ -17,7 +17,7 @@ export const StudentNav: React.FC<StudentNavProps> = ({
 }) => {
   if (role === 'teacher') {
     return (
-      <nav className="fixed bottom-0 left-0 right-0 z-30 bg-[#FFFFFF]/95 backdrop-blur-md border-t border-[#E5DDD0] py-2 px-4 shadow-lg sm:max-w-md sm:mx-auto sm:rounded-t-2xl">
+      <nav className="fixed bottom-0 left-0 right-0 z-30 bg-[#FFFFFF]/95 backdrop-blur-md border-t border-[#E5DDD0] py-2 px-4 shadow-lg sm:max-w-md sm:mx-auto sm:rounded-t-2xl hidden" style={{ display: "none" }}>
         <div className="flex items-center justify-around max-w-lg mx-auto">
           <button
             onClick={() => onSelectTab('teacher')}
@@ -56,7 +56,7 @@ export const StudentNav: React.FC<StudentNavProps> = ({
   return (
     <nav
       id="student-bottom-nav"
-      className="fixed bottom-0 left-0 right-0 z-30 bg-[#FFFFFF]/95 backdrop-blur-md border-t border-[#E5DDD0] py-2 px-3 shadow-lg max-w-lg mx-auto sm:bottom-4 sm:rounded-3xl sm:border sm:shadow-xl"
+      className="fixed bottom-0 left-0 right-0 z-30 bg-[#FFFFFF]/95 backdrop-blur-md border-t border-[#E5DDD0] py-2 px-3 shadow-lg max-w-lg mx-auto sm:bottom-4 sm:rounded-3xl sm:border sm:shadow-xl hidden" style={{ display: "none" }}
     >
       <div className="flex items-center justify-around">
         {navItems.map((item) => {
