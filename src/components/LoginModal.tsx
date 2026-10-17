@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { X, GraduationCap, Shield, User, Lock, ArrowRight, AlertCircle } from "lucide-react";
 import { studentService } from "../services/studentService";
+import { store } from "../services/store";
 import { UserProfile } from "../types";
 
 interface LoginModalProps {
@@ -10,8 +11,8 @@ interface LoginModalProps {
 }
 
 export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onLoginSuccess }) => {
-  const [role, setRole] = useState<"student" | "teacher">("student");
-  const [identifier, setIdentifier] = useState("");
+  const [role, setRole] = useState<"student" | "teacher">("teacher");
+  const [identifier, setIdentifier] = useState("vothuhiendhnn@gmail.com");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -21,22 +22,70 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onLogin
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-    if (!identifier.trim() || !password) {
+
+    const inputId = identifier.trim();
+    const inputPass = password.trim();
+
+    if (!inputId || !inputPass) {
       setError("Vui lòng nhập đầy đủ thông tin.");
       return;
     }
 
     setLoading(true);
+
     try {
-      const res = await studentService.login(identifier.trim(), password);
+      // 1. NẾU LÀ GIÁO VIÊN: KIỂM TRA TRỰC TIẾP
+      if (role === "teacher") {
+        const checkEmail = inputId.toLowerCase();
+        if (checkEmail === "vothuhiendhnn@gmail.com" || checkEmail === "gv" || checkEmail === "misshien") {
+          if (inputPass === "654321") {
+            const teacherProfile: UserProfile = {
+              id: "teacher-hien",
+              role: "teacher",
+              name: "Cô Thu Hiền",
+              phone: "vothuhiendhnn@gmail.com",
+              className: "9A1",
+              xp: 0,
+              streak: 0,
+              createdAt: new Date().toISOString(),
+              lastLoginAt: new Date().toISOString(),
+              overallProgress: 100,
+              vocabularyScore: 100,
+              grammarScore: 100,
+              pronunciationScore: 100,
+              listeningScore: 100,
+              vocabularyProgress: 100,
+              grammarProgress: 100,
+              pronunciationProgress: 100,
+              listeningProgress: 100,
+              lastActivity: "Quản lý lớp học",
+              syncStatus: "synced"
+            };
+            store.setCurrentUser(teacherProfile);
+            studentService.persistProfile(teacherProfile);
+            onLoginSuccess(teacherProfile);
+            onClose();
+            return;
+          } else {
+            setError("Mật khẩu giáo viên không đúng. Mật khẩu chuẩn là 654321.");
+            return;
+          }
+        } else {
+          setError("Email giáo viên không đúng. Vui lòng nhập: vothuhiendhnn@gmail.com");
+          return;
+        }
+      }
+
+      // 2. NẾU LÀ HỌC SINH: GỌI SUPABASE XÁC THỰC
+      const res = await studentService.login(inputId.toUpperCase(), inputPass);
       if (res.success && res.student) {
         onLoginSuccess(res.student);
         onClose();
       } else {
-        setError(res.error || "Đăng nhập thất bại. Vui lòng kiểm tra lại thông tin.");
+        setError(res.error || "Mã học sinh hoặc mật khẩu không đúng.");
       }
     } catch {
-      setError("Lỗi kết nối máy chủ. Vui lòng thử lại.");
+      setError("Không thể kết nối đến máy chủ. Vui lòng kiểm tra lại mạng.");
     } finally {
       setLoading(false);
     }
@@ -93,7 +142,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onLogin
 
           <div>
             <label className="block text-[11px] font-bold text-[#5C6B57] uppercase tracking-wider mb-1.5">
-              {role === "teacher" ? "Email Giáo viên" : "Mã Học sinh (Cấp theo danh sách)"}
+              {role === "teacher" ? "EMAIL GIÁO VIÊN" : "MÃ HỌC SINH"}
             </label>
             <div className="relative">
               <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#7D8876]" />
@@ -110,7 +159,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onLogin
 
           <div>
             <label className="block text-[11px] font-bold text-[#5C6B57] uppercase tracking-wider mb-1.5">
-              Mật khẩu
+              MẬT KHẨU
             </label>
             <div className="relative">
               <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#7D8876]" />
@@ -118,7 +167,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onLogin
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder={role === "teacher" ? "Nhập 654321" : "Nhập mật khẩu..."}
+                placeholder={role === "teacher" ? "Nhập 654321" : "Nhập mật khẩu học sinh..."}
                 className="w-full pl-10 pr-4 py-2.5 bg-[#FAF7F2] border border-[#E5DDD0] rounded-2xl text-xs font-semibold text-[#2D332A] focus:outline-none focus:border-[#4B5D44]"
               />
             </div>

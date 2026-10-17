@@ -63,7 +63,7 @@ const INITIAL_USERS: UserProfile[] = [
   },
 ];
 
-// Initial Demo Progress for Minh Anh, Lan Anh, Hoàng Nam
+// Initial Demo Progress for , Lan Anh, Hoàng Nam
 const INITIAL_PROGRESS: any[] = [];
 
 // Initial Quiz Attempts History

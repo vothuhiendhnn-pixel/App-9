@@ -112,7 +112,10 @@ export default function App() {
     // 1. TEACHER ROLE
     if (currentUser.role === 'teacher') {
       if (selectedStudentForTeacher) {
-        return (
+        if (currentUser && currentUser.role === "teacher") {
+    return <TeacherDashboardScreen user={currentUser} onBack={() => { store.setCurrentUser(null); setCurrentUser(null); }} />;
+  }
+  return (
           <TeacherStudentDetailScreen
             studentId={selectedStudentForTeacher}
             onBack={() => setSelectedStudentForTeacher(null)}

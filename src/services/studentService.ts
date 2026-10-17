@@ -32,7 +32,7 @@ class StudentService {
 
   /**
    * Extracts friendly first name or middle+first name from full Vietnamese name
-   * e.g. "Nguyễn Minh Anh" -> ""
+   * e.g. "Nguyễn " -> ""
    * "Lê Hoàng Lan" -> "Hoàng Lan"
    * "Trần Nam" -> "Nam"
    */
