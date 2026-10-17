@@ -7,7 +7,7 @@ interface LoginModalProps { isOpen: boolean; onClose: () => void; onLoginSuccess
 
 export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onLoginSuccess }) => {
   const [role, setRole] = useState<"student" | "teacher">("teacher");
-  const [identifier, setIdentifier] = useState("vothuhiendhnn@gmail.com");
+  const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -28,9 +28,9 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onLogin
     // ==========================================
     if (role === "teacher") {
       const emailLower = cleanId.toLowerCase();
-      if (emailLower === "vothuhiendhnn@gmail.com" && cleanPass === "654321") {
+      if (emailLower === "" && cleanPass === "654321") {
         const teacherProfile: UserProfile = {
-          id: "teacher-01", role: "teacher", name: "Cô Thu Hiền", phone: "vothuhiendhnn@gmail.com",
+          id: "teacher-01", role: "teacher", name: "Cô Thu Hiền", phone: "",
           className: "9A1", xp: 0, streak: 0, createdAt: new Date().toISOString(), lastLoginAt: new Date().toISOString(),
           overallProgress: 100, vocabularyScore: 100, grammarScore: 100, pronunciationScore: 100, listeningScore: 100,
           vocabularyProgress: 100, grammarProgress: 100, pronunciationProgress: 100, listeningProgress: 100,
@@ -74,7 +74,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onLogin
           <h2 className="text-xl font-extrabold text-[#2D332A] font-serif">English 9 - Miss Hiền</h2>
           <div className="flex bg-[#F2ECE1] p-1 rounded-2xl mt-5">
             <button type="button" onClick={() => { setRole("student"); setIdentifier(""); setPassword(""); setError(null); }} className={`flex-1 py-2.5 rounded-xl text-xs font-bold ${role === "student" ? "bg-white text-[#4B5D44]" : "text-[#7D8876]"}`}>Học sinh</button>
-            <button type="button" onClick={() => { setRole("teacher"); setIdentifier("vothuhiendhnn@gmail.com"); setPassword(""); setError(null); }} className={`flex-1 py-2.5 rounded-xl text-xs font-bold ${role === "teacher" ? "bg-white text-[#8E5D32]" : "text-[#7D8876]"}`}>Giáo viên</button>
+            <button type="button" onClick={() => { setRole("teacher"); setIdentifier(""); setPassword(""); setError(null); }} className={`flex-1 py-2.5 rounded-xl text-xs font-bold ${role === "teacher" ? "bg-white text-[#8E5D32]" : "text-[#7D8876]"}`}>Giáo viên</button>
           </div>
         </div>
         <form onSubmit={handleSubmit} className="px-6 pb-6 space-y-4">
@@ -83,14 +83,14 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onLogin
             <label className="block text-[11px] font-bold text-[#5C6B57] mb-1.5">{role === "teacher" ? "Email Giáo viên" : "Mã Học sinh (Từ danh sách)"}</label>
             <div className="relative">
               <User className="absolute left-3.5 top-3 w-4 h-4 text-[#7D8876]" />
-              <input type="text" value={identifier} onChange={e => setIdentifier(e.target.value)} placeholder={role === "teacher" ? "vothuhiendhnn@gmail.com" : "Ví dụ: HS01"} className="w-full pl-10 pr-4 py-2.5 bg-[#FAF7F2] border border-[#E5DDD0] rounded-2xl text-xs" />
+              <input type="text" value={identifier} onChange={e => setIdentifier(e.target.value)} placeholder={role === "teacher" ? "" : "Ví dụ: HS01"} className="w-full pl-10 pr-4 py-2.5 bg-[#FAF7F2] border border-[#E5DDD0] rounded-2xl text-xs" />
             </div>
           </div>
           <div>
             <label className="block text-[11px] font-bold text-[#5C6B57] mb-1.5">Mật khẩu</label>
             <div className="relative">
               <Lock className="absolute left-3.5 top-3 w-4 h-4 text-[#7D8876]" />
-              <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder={role === "teacher" ? "Nhập 654321" : "Mật khẩu học sinh"} className="w-full pl-10 pr-4 py-2.5 bg-[#FAF7F2] border border-[#E5DDD0] rounded-2xl text-xs" />
+              <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder={role === "teacher" ? "Nhập mật khẩu..." : "Mật khẩu học sinh"} className="w-full pl-10 pr-4 py-2.5 bg-[#FAF7F2] border border-[#E5DDD0] rounded-2xl text-xs" />
             </div>
           </div>
           <button type="submit" disabled={loading} className={`w-full py-3 rounded-2xl font-bold text-xs text-white ${role === "teacher" ? "bg-[#8E5D32]" : "bg-[#4B5D44]"} ${loading ? "opacity-70" : ""}`}>
