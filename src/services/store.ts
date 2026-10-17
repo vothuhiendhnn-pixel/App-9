@@ -31,10 +31,10 @@ const INITIAL_USERS: UserProfile[] = [
   {
     id: 'student-1',
     role: 'student',
-    name: 'Minh Anh',
+    name: "",
     email: 'minhanh.9a@student.edu.vn',
     className: '9A',
-    xp: 640,
+    xp: 0,
     streak: 6,
     createdAt: '2026-08-05T09:00:00.000Z',
     lastLoginAt: new Date(Date.now() - 3600 * 1000 * 2).toISOString(),
@@ -59,46 +59,12 @@ const INITIAL_USERS: UserProfile[] = [
     xp: 310,
     streak: 2,
     createdAt: '2026-08-08T14:00:00.000Z',
-    lastLoginAt: new Date(Date.now() - 86400 * 1000 * 2).toISOString(),
+    lastLoginAt: new Date(Date.now() - 800 * 1000 * 2).toISOString(),
   },
 ];
 
 // Initial Demo Progress for Minh Anh, Lan Anh, Hoàng Nam
-const INITIAL_PROGRESS: StudentProgress[] = [
-  {
-    studentId: 'student-1',
-    unit: 1,
-    vocabularyProgress: 92,
-    grammarProgress: 85,
-    pronunciationProgress: 78,
-    practiceProgress: 89,
-    unitProgress: 86,
-    averageScore: 86,
-    lastActivity: new Date(Date.now() - 3600 * 1000 * 2).toISOString(),
-  },
-  {
-    studentId: 'student-2',
-    unit: 1,
-    vocabularyProgress: 80,
-    grammarProgress: 75,
-    pronunciationProgress: 70,
-    practiceProgress: 65,
-    unitProgress: 72,
-    averageScore: 82,
-    lastActivity: new Date(Date.now() - 3600 * 1000 * 5).toISOString(),
-  },
-  {
-    studentId: 'student-3',
-    unit: 1,
-    vocabularyProgress: 50,
-    grammarProgress: 40,
-    pronunciationProgress: 35,
-    practiceProgress: 40,
-    unitProgress: 41,
-    averageScore: 65,
-    lastActivity: new Date(Date.now() - 86400 * 1000 * 2).toISOString(),
-  },
-];
+const INITIAL_PROGRESS: any[] = [];
 
 // Initial Quiz Attempts History
 const INITIAL_ATTEMPTS: QuizAttempt[] = [
@@ -113,7 +79,7 @@ const INITIAL_ATTEMPTS: QuizAttempt[] = [
     maxScore: 10,
     percentage: 90,
     attemptNumber: 1,
-    submittedAt: new Date(Date.now() - 86400 * 1000 * 2).toISOString(),
+    submittedAt: new Date(Date.now() - 800 * 1000 * 2).toISOString(),
     xpEarned: 20,
   },
   {
@@ -127,7 +93,7 @@ const INITIAL_ATTEMPTS: QuizAttempt[] = [
     maxScore: 10,
     percentage: 80,
     attemptNumber: 1,
-    submittedAt: new Date(Date.now() - 86400 * 1000 * 1.5).toISOString(),
+    submittedAt: new Date(Date.now() - 800 * 1000 * 1.5).toISOString(),
     xpEarned: 20,
   },
   {
@@ -170,7 +136,7 @@ const INITIAL_ATTEMPTS: QuizAttempt[] = [
     maxScore: 10,
     percentage: 80,
     attemptNumber: 1,
-    submittedAt: new Date(Date.now() - 86400 * 1000 * 3).toISOString(),
+    submittedAt: new Date(Date.now() - 800 * 1000 * 3).toISOString(),
     xpEarned: 20,
   },
   {
@@ -199,7 +165,7 @@ const INITIAL_ATTEMPTS: QuizAttempt[] = [
     maxScore: 10,
     percentage: 60,
     attemptNumber: 1,
-    submittedAt: new Date(Date.now() - 86400 * 1000 * 4).toISOString(),
+    submittedAt: new Date(Date.now() - 800 * 1000 * 4).toISOString(),
     xpEarned: 10,
   },
   {
@@ -213,7 +179,7 @@ const INITIAL_ATTEMPTS: QuizAttempt[] = [
     maxScore: 100,
     percentage: 65,
     attemptNumber: 1,
-    submittedAt: new Date(Date.now() - 86400 * 1000 * 2).toISOString(),
+    submittedAt: new Date(Date.now() - 800 * 1000 * 2).toISOString(),
     xpEarned: 10,
   },
 ];
@@ -259,7 +225,7 @@ const INITIAL_MISTAKES: MistakeItem[] = [
     correctAnswer: '/ɑː/',
     explanationVi: "'park' phát âm là /pɑːk/ với nguyên âm dài /ɑː/.",
     attemptCount: 2,
-    lastAttempt: new Date(Date.now() - 86400 * 1000 * 2).toISOString(),
+    lastAttempt: new Date(Date.now() - 800 * 1000 * 2).toISOString(),
     resolved: false,
   },
 ];
@@ -269,7 +235,7 @@ const INITIAL_SESSIONS: LoginSession[] = [
   {
     id: 'sess-1',
     studentId: 'student-1',
-    studentName: 'Minh Anh',
+    studentName: "",
     className: '9A',
     loginTime: new Date(Date.now() - 3600 * 1000 * 2.5).toISOString(),
     logoutTime: new Date(Date.now() - 3600 * 1000 * 2).toISOString(),
@@ -293,16 +259,16 @@ const INITIAL_SESSIONS: LoginSession[] = [
     studentId: 'student-3',
     studentName: 'Hoàng Nam',
     className: '9A',
-    loginTime: new Date(Date.now() - 86400 * 1000 * 2).toISOString(),
-    logoutTime: new Date(Date.now() - 86400 * 1000 * 1.9).toISOString(),
+    loginTime: new Date(Date.now() - 800 * 1000 * 2).toISOString(),
+    logoutTime: new Date(Date.now() - 800 * 1000 * 1.9).toISOString(),
     sessionDurationSeconds: 1500,
     deviceType: 'Chrome on Android',
-    lastHeartbeat: new Date(Date.now() - 86400 * 1000 * 1.9).toISOString(),
+    lastHeartbeat: new Date(Date.now() - 800 * 1000 * 1.9).toISOString(),
   },
 ];
 
 class AppStore {
-  private currentUser: UserProfile | null = null;
+  private currentUser: null
   private currentSessionId: string | null = null;
   private heartbeatTimer: any = null;
 
@@ -328,43 +294,13 @@ class AppStore {
   }
 
   private initData() {
-    if (!localStorage.getItem('eng9_users')) {
-      this.setStorage('users', INITIAL_USERS);
-    }
-    if (!localStorage.getItem('eng9_progress')) {
-      this.setStorage('progress', INITIAL_PROGRESS);
-    }
-    if (!localStorage.getItem('eng9_attempts')) {
-      this.setStorage('attempts', INITIAL_ATTEMPTS);
-    }
-    if (!localStorage.getItem('eng9_mistakes')) {
-      this.setStorage('mistakes', INITIAL_MISTAKES);
-    }
-    if (!localStorage.getItem('eng9_sessions')) {
-      this.setStorage('sessions', INITIAL_SESSIONS);
-    }
-    if (!localStorage.getItem('eng9_events')) {
-      this.setStorage('events', [] as LearningEvent[]);
-    }
-    if (!localStorage.getItem('eng9_vocab_progress')) {
-      const initialVocabMap: Record<string, Record<string, VocabularyStatus>> = {
-        'student-1': {
-          'u1-v1': 'mastered',
-          'u1-v2': 'mastered',
-          'u1-v3': 'good',
-          'u1-v4': 'good',
-          'u1-v5': 'good',
-          'u1-v6': 'good',
-          'u1-v7': 'learning',
-          'u1-v8': 'learning',
-          'u1-v9': 'mastered',
-          'u1-v10': 'mastered',
-          'u1-v11': 'good',
-          'u1-v12': 'good',
-        },
-      };
-      this.setStorage('vocab_progress', initialVocabMap);
-    }
+    
+    
+    
+    
+    
+    
+    
 
     // Restore active session: prioritize english9_student
     try {
@@ -378,7 +314,7 @@ class AppStore {
             users.push(studentObj);
             this.setStorage('users', users);
           }
-          this.currentUser = studentObj;
+          this.currentUser = null;
           this.startHeartbeat();
           return;
         }
@@ -389,7 +325,7 @@ class AppStore {
 
     const savedUser = this.getStorage<UserProfile | null>('current_user', null);
     if (savedUser) {
-      this.currentUser = savedUser;
+      this.currentUser = null;
       this.startHeartbeat();
     } else {
       const users = this.getUsers();
@@ -434,7 +370,7 @@ class AppStore {
     user.lastLoginAt = new Date().toISOString();
     this.updateUser(user);
 
-    this.currentUser = user;
+    this.currentUser = null;
     this.setStorage('current_user', user);
 
     // Create session
@@ -513,7 +449,7 @@ class AppStore {
       users[index] = updatedUser;
       this.setStorage('users', users);
       if (this.currentUser && this.currentUser.id === updatedUser.id) {
-        this.currentUser = updatedUser;
+        this.currentUser = null;
         this.setStorage('current_user', updatedUser);
       }
     }
