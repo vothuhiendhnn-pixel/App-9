@@ -176,7 +176,7 @@ export const StudentHomeScreen: React.FC<StudentHomeScreenProps> = ({
       {/* SECTION: Learn (Key Modules) */}
       
       {/* --- GIAO DIỆN 3 TRỤ CỘT MỚI --- */}
-      <StudentPillars />
+      <StudentPillars onNavigate={onNavigateUnits} />
       
     </div>
   );

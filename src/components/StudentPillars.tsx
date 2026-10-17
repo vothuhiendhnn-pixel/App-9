@@ -1,7 +1,7 @@
 
 import React from 'react';
 
-export const StudentPillars = () => {
+export const StudentPillars = ({ onNavigate }: { onNavigate?: () => void }) => {
   return (
     <div className="mt-8 mb-8">
       <div className="flex items-center space-x-2 mb-4">
