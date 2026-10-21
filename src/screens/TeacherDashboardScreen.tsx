@@ -180,6 +180,18 @@ export const TeacherDashboardScreen: React.FC<TeacherDashboardScreenProps> = ({ 
     }) ?? null;
   };
 
+  const vocabularyStagesCompleted = (student: StudentWithSubmissions): number => {
+    const stageNames = ['Nối từ với nghĩa', 'Chọn nghĩa đúng', 'Nghe và chọn từ', 'Viết từ', 'Điền từ vào câu', 'Vocabulary Challenge'];
+    return stageNames.filter(name => student.submissions.some(item => {
+      if (Number(item.unit_number) !== selectedUnit || submissionSkill(item) !== 'vocabulary') return false;
+      const a = item.answers;
+      const percent = a?.clientReportedScore;
+      const score = typeof percent === 'number' ? percent :
+        (typeof a?.correct === 'number' && typeof a?.total === 'number' && a.total > 0 ? a.correct / a.total * 100 : -1);
+      return a?.exercise === name && score >= 80;
+    })).length;
+  };
+
   const renderSkillCell = (student: StudentWithSubmissions, skill: SkillKey) => {
     const result = findSkillSubmission(student, skill);
     if (!result) return <span className="text-gray-400">Chưa nộp</span>;
@@ -187,6 +199,7 @@ export const TeacherDashboardScreen: React.FC<TeacherDashboardScreenProps> = ({ 
     return <button type="button" onClick={() => setSelectedId(String(student.id))}
       className="flex flex-col items-start font-semibold text-[#315d8e] underline" title="Xem các lần nộp bài">
       <span>{scoreText(result)}</span>
+      {skill === 'vocabulary' && <span className="text-xs font-extrabold text-[#126342] no-underline">{vocabularyStagesCompleted(student)}/6 · {vocabularyStagesCompleted(student) === 6 ? 'Completed' : 'In Progress'}</span>}
       {pending && <span className="text-[10px] font-normal text-amber-700 no-underline">Chờ xác minh</span>}
     </button>;
   };

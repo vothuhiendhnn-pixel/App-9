@@ -205,6 +205,28 @@ class ProgressService {
     window.dispatchEvent(new CustomEvent('english9:submission-status', { detail: { status, message } }));
   }
 
+  /** Fetch the current student's own server-acknowledged Vocabulary submissions.
+   * Requires the separate authenticated RPC supplied with this patch.
+   * Never query public.submissions directly from an anonymous browser. */
+  public async getVocabularyCloudStages(student: UserProfile, unit: number): Promise<Array<{
+    exercise: string; score: number; passed: boolean;
+  }>> {
+    const credentials = studentService.getSubmissionCredential(student.id);
+    if (!credentials) throw new Error('Please sign in again to sync your progress.');
+    const { data, error } = await supabase.rpc('student_get_vocabulary_stages', {
+      p_student_code: credentials.code,
+      p_password: credentials.password,
+      p_student_id: student.id,
+      p_unit: unit,
+    });
+    if (error) throw new Error(error.message);
+    return (data ?? []).map((row: any) => ({
+      exercise: String(row.exercise ?? ''),
+      score: Number(row.reported_score ?? 0),
+      passed: row.passed === true,
+    }));
+  }
+
   /**
    * Word review hook (cloud persistence pending)
    */
