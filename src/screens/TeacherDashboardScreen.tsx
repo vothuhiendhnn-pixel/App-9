@@ -250,7 +250,6 @@ export const TeacherDashboardScreen: React.FC<TeacherDashboardScreenProps> = ({ 
             ['Chưa có bài nộp', students.length - studentsWithWork],
           ].map(([label, value]) => <div key={String(label)} className="bg-white border rounded-xl p-4"><div className="text-xs text-gray-500">{label}</div><div className="text-2xl font-bold mt-2">{value}</div></div>)}
         </section>
-        <p className="text-xs text-amber-800 bg-amber-50 rounded-lg p-3">Điểm hiển thị bên dưới là kết quả do trình duyệt báo cáo (chưa phải điểm giáo viên đã xác minh). Không sử dụng số liệu giả cho tiến độ, XP hoặc lượt truy cập.</p>
         <div className="flex flex-wrap items-center gap-3 bg-white rounded-xl border p-3">
           <label htmlFor="teacher-unit-filter" className="text-sm font-semibold">Kết quả theo Unit</label>
           <select id="teacher-unit-filter" value={selectedUnit} onChange={e => setSelectedUnit(Number(e.target.value))}
