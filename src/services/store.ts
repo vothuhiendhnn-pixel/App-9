@@ -268,7 +268,7 @@ const INITIAL_SESSIONS: LoginSession[] = [
 ];
 
 class AppStore {
-  private currentUser: null
+private currentUser: UserProfile | null = null;
   private currentSessionId: string | null = null;
   private heartbeatTimer: any = null;
 
@@ -370,7 +370,8 @@ class AppStore {
     user.lastLoginAt = new Date().toISOString();
     this.updateUser(user);
 
-    this.currentUser = null;
+    this.currentUser = user;
+this.setStorage('current_user', user);
     this.setStorage('current_user', user);
 
     // Create session
@@ -449,8 +450,8 @@ class AppStore {
       users[index] = updatedUser;
       this.setStorage('users', users);
       if (this.currentUser && this.currentUser.id === updatedUser.id) {
-        this.currentUser = null;
-        this.setStorage('current_user', updatedUser);
+       this.currentUser = updatedUser;
+this.setStorage('current_user', updatedUser);
       }
     }
   }

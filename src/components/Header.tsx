@@ -71,7 +71,7 @@ export const Header: React.FC<HeaderProps> = ({
   const displayName = user ? studentService.getStudentDisplayName(user.name) : '';
 
   return (
-    <header className="sticky top-0 z-40 bg-[#FFFFFF]/95 backdrop-blur-md border-b border-[#E8DFC8] px-4 py-3 sm:px-6">
+    <header className="sticky top-0 z-50 bg-[#FFFFFF]/95 backdrop-blur-md border-b border-[#E8DFC8] px-4 py-3 sm:px-6">
       <div className="max-w-6xl mx-auto flex items-center justify-between">
         {/* Brand / Logo */}
         <div className="flex items-center gap-3">
@@ -151,6 +151,19 @@ export const Header: React.FC<HeaderProps> = ({
             </>
           )}
 
+          {/* Always-visible sign out: bypasses the account dropdown overlay. */}
+          {user && (
+            <button
+              type="button"
+              onClick={() => { void onLogout(); }}
+              aria-label="Đăng xuất và chọn tài khoản khác"
+              className="inline-flex items-center gap-1.5 rounded-xl border border-[#E5DDD0] bg-white px-3 py-2 text-xs font-bold text-[#A64B3B] hover:bg-[#F9EBE9] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#A64B3B]"
+            >
+              <LogOut className="w-4 h-4" />
+              <span>Đăng xuất</span>
+            </button>
+          )}
+
           {/* User Menu Button */}
           {user ? (
             <div className="relative">
@@ -178,10 +191,10 @@ export const Header: React.FC<HeaderProps> = ({
               {showDropdown && (
                 <>
                   <div
-                    className="fixed inset-0 z-40"
+                    className="fixed inset-0 z-[90]"
                     onClick={() => setShowDropdown(false)}
                   />
-                  <div className="absolute right-0 mt-2 w-64 bg-white rounded-2xl shadow-xl border border-[#E5DDD0] p-2 z-50 animate-in fade-in zoom-in-95 duration-100">
+                  <div className="absolute right-0 mt-2 w-64 bg-white rounded-2xl shadow-xl border border-[#E5DDD0] p-2 z-[100] animate-in fade-in zoom-in-95 duration-100">
                     {/* User Info Header: Full Name and Class (NO Phone Number) */}
                     <div className="px-3 py-2.5 border-b border-[#F0EAE1] mb-1.5">
                       <p className="text-[11px] text-[#7D8876] font-medium">Họ và tên</p>
@@ -296,7 +309,10 @@ export const Header: React.FC<HeaderProps> = ({
                     <div className="border-t border-[#F0EAE1] mt-2 pt-1">
                       <button
                         type="button"
-                        onClick={() => {
+                        aria-label="Đăng xuất tài khoản"
+                        onClick={(event) => {
+                          event.preventDefault();
+                          event.stopPropagation();
                           setShowDropdown(false);
                           onLogout();
                         }}

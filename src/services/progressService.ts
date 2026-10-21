@@ -111,7 +111,7 @@ class ProgressService {
 
     const { data: sessionData, error: sessionError } = await supabase.auth.getUser();
     if (sessionError || !sessionData.user) {
-      throw new Error('Chưa có phiên Supabase Auth. Vui lòng đăng nhập lại để nộp bài.');
+      throw new Error('Chưa lưu được lên Supabase: đăng nhập bằng mã học sinh hiện chưa tạo phiên Supabase Auth. Bài chỉ có thể lưu khi cấu hình luồng nộp bài xác thực trên máy chủ.');
     }
 
     // Verify the Auth user owns the student profile before attempting INSERT.
