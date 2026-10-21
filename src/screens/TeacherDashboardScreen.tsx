@@ -195,12 +195,10 @@ export const TeacherDashboardScreen: React.FC<TeacherDashboardScreenProps> = ({ 
   const renderSkillCell = (student: StudentWithSubmissions, skill: SkillKey) => {
     const result = findSkillSubmission(student, skill);
     if (!result) return <span className="text-gray-400">Chưa nộp</span>;
-    const pending = result.grading_status === 'pending';
     return <button type="button" onClick={() => setSelectedId(String(student.id))}
       className="flex flex-col items-start font-semibold text-[#315d8e] underline" title="Xem các lần nộp bài">
       <span>{scoreText(result)}</span>
       {skill === 'vocabulary' && <span className="text-xs font-extrabold text-[#126342] no-underline">{vocabularyStagesCompleted(student)}/6 · {vocabularyStagesCompleted(student) === 6 ? 'Completed' : 'In Progress'}</span>}
-      {pending && <span className="text-[10px] font-normal text-amber-700 no-underline">Chờ xác minh</span>}
     </button>;
   };
 
@@ -259,7 +257,6 @@ export const TeacherDashboardScreen: React.FC<TeacherDashboardScreenProps> = ({ 
             className="border rounded-lg px-3 py-2 text-sm bg-white">
             {Array.from({length: 12}, (_, i) => i + 1).map(unit => <option key={unit} value={unit}>Unit {unit}</option>)}
           </select>
-          <span className="text-xs text-gray-600">Điểm do học sinh gửi, chưa được giáo viên xác minh</span>
         </div>
         <div className="flex items-center gap-2 bg-white border rounded-xl px-3 py-2"><Search className="w-4 h-4 text-gray-500"/><input className="w-full outline-none text-sm" value={search} onChange={e => setSearch(e.target.value)} placeholder="Tìm học sinh, mã số hoặc lớp…" /></div>
         <div className="overflow-x-auto bg-white border rounded-xl">
@@ -288,7 +285,7 @@ export const TeacherDashboardScreen: React.FC<TeacherDashboardScreenProps> = ({ 
         {selected && <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4" role="presentation" onMouseDown={(e) => { if (e.target === e.currentTarget) setSelectedId(null); }}>
           <section role="dialog" aria-modal="true" aria-label={`Bài nộp của ${selected.full_name ?? 'học sinh'}`} className="bg-white border rounded-2xl shadow-2xl p-5 space-y-3 w-full max-w-4xl max-h-[85vh] overflow-auto">
           <div className="flex justify-between gap-2 items-center"><h2 className="font-bold">Bài nộp: {selected.full_name} ({selected.student_code})</h2><button type="button" onClick={() => setSelectedId(null)} className="text-sm underline">Đóng</button></div>
-          {selected.submissions.length === 0 ? <p className="text-sm text-gray-500">Học sinh chưa có bài nộp trong Supabase.</p> : <div className="overflow-x-auto"><table className="w-full text-xs text-left"><thead><tr><th className="p-2">Ngày nộp</th><th className="p-2">Bài</th><th className="p-2">Unit</th><th className="p-2">Kết quả tự báo</th><th className="p-2">Xác minh</th></tr></thead><tbody>{selected.submissions.map((item, i) => <tr key={item.id ?? i} className="border-t"><td className="p-2">{formatDate(submissionDate(item))}</td><td className="p-2">{item.activity_id ?? item.activity_type ?? '—'}</td><td className="p-2">{item.unit_number ?? '—'}</td><td className="p-2">{scoreText(item)}</td><td className="p-2">{item.grading_status ?? 'Chưa xác minh'}</td></tr>)}</tbody></table></div>}
+          {selected.submissions.length === 0 ? <p className="text-sm text-gray-500">Học sinh chưa có bài nộp trong Supabase.</p> : <div className="overflow-x-auto"><table className="w-full text-xs text-left"><thead><tr><th className="p-2">Ngày nộp</th><th className="p-2">Bài</th><th className="p-2">Unit</th><th className="p-2">Kết quả bài làm</th></tr></thead><tbody>{selected.submissions.map((item, i) => <tr key={item.id ?? i} className="border-t"><td className="p-2">{formatDate(submissionDate(item))}</td><td className="p-2">{item.activity_id ?? item.activity_type ?? '—'}</td><td className="p-2">{item.unit_number ?? '—'}</td><td className="p-2">{scoreText(item)}</td></tr>)}</tbody></table></div>}
           </section>
         </div>}
       </>}
