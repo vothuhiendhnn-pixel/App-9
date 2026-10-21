@@ -29,6 +29,7 @@ type SubmissionRow = {
   submitted_at?: string | null;
   completed_at?: string | null;
   grading_status?: string | null;
+  score?: number | null;
   answers?: Record<string, unknown> | null;
 };
 
@@ -49,8 +50,18 @@ const submissionDate = (submission: SubmissionRow): string | null =>
 const scoreText = (submission: SubmissionRow) => {
   const correct = submission.answers?.correct;
   const total = submission.answers?.total;
+  const clientScore = submission.answers?.clientReportedScore;
   if (typeof correct === 'number' && typeof total === 'number' && total > 0 && correct >= 0 && correct <= total) {
-    return `${correct}/${total} (${Math.round((correct / total) * 100)}%)`;
+    const percentage = typeof clientScore === 'number' && Number.isFinite(clientScore) && clientScore >= 0 && clientScore <= 100
+      ? Math.round(clientScore)
+      : Math.round(correct / total * 100);
+    return `${correct}/${total} (${percentage}%)`;
+  }
+  // Legacy graded quizzes have a numeric score but no reliable denominator.
+  // Show the recorded grade without inventing a percentage.
+  const savedScore = submission.score;
+  if (submission.grading_status === 'graded' && typeof savedScore === 'number' && Number.isFinite(savedScore)) {
+    return `Điểm đã chấm: ${savedScore}`;
   }
   return 'Chưa có số liệu';
 };
@@ -58,6 +69,7 @@ const scoreText = (submission: SubmissionRow) => {
 export const TeacherDashboardScreen: React.FC<TeacherDashboardScreenProps> = ({ user, onBack }) => {
   const [students, setStudents] = useState<StudentWithSubmissions[]>([]);
   const [search, setSearch] = useState('');
+  const [selectedUnit, setSelectedUnit] = useState(1);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -137,15 +149,57 @@ export const TeacherDashboardScreen: React.FC<TeacherDashboardScreenProps> = ({ 
     return students.filter(s => `${s.full_name ?? ''} ${s.student_code ?? ''} ${s.classLabel}`.toLocaleLowerCase('vi-VN').includes(term));
   }, [students, search]);
 
+  // New submissions use activity_type='quiz' (database CHECK constraint),
+  // while the actual educational skill is stored in answers.skill.
+  // Legacy submissions without an identifiable skill remain unclassified;
+  // we never guess that an old generic quiz belongs to Vocabulary.
+  type SkillKey = 'vocabulary' | 'grammar' | 'practice';
+  const submissionSkill = (item: SubmissionRow): string | null => {
+    const explicit = item.answers?.skill;
+    if (typeof explicit === 'string' && explicit.trim()) return explicit.trim().toLowerCase();
+
+    const legacyType = (item.activity_type ?? '').trim().toLowerCase();
+    if (['vocabulary', 'grammar', 'listening', 'practice', 'challenge', 'pronunciation'].includes(legacyType)) {
+      return legacyType;
+    }
+
+    // Only explicit skill prefixes count. "quiz-unit-1" is ambiguous.
+    const activity = (item.activity_id ?? '').trim().toLowerCase();
+    const match = /^(vocabulary|grammar|listening|practice|challenge|pronunciation)(?:-|$)/.exec(activity);
+    return match ? match[1] : null;
+  };
+
+  const findSkillSubmission = (student: StudentWithSubmissions, skill: SkillKey): SubmissionRow | null => {
+    // submissions were sorted newest-first when fetched from Supabase.
+    return student.submissions.find(item => {
+      if (Number(item.unit_number) !== selectedUnit) return false;
+      const kind = submissionSkill(item);
+      return skill === 'practice'
+        ? kind !== null && ['listening', 'practice', 'challenge'].includes(kind)
+        : kind === skill;
+    }) ?? null;
+  };
+
+  const renderSkillCell = (student: StudentWithSubmissions, skill: SkillKey) => {
+    const result = findSkillSubmission(student, skill);
+    if (!result) return <span className="text-gray-400">Chưa nộp</span>;
+    const pending = result.grading_status === 'pending';
+    return <button type="button" onClick={() => setSelectedId(String(student.id))}
+      className="flex flex-col items-start font-semibold text-[#315d8e] underline" title="Xem các lần nộp bài">
+      <span>{scoreText(result)}</span>
+      {pending && <span className="text-[10px] font-normal text-amber-700 no-underline">Chờ xác minh</span>}
+    </button>;
+  };
+
   const submissionCount = students.reduce((sum, s) => sum + s.submissions.length, 0);
   const studentsWithWork = students.filter(s => s.submissions.length > 0).length;
   const selected = students.find(s => String(s.id) === selectedId) ?? null;
 
   const exportRealCsv = () => {
-    const header = ['Mã học sinh', 'Họ tên', 'Lớp', 'Bài làm', 'Loại bài', 'Unit', 'Thời gian nộp', 'Kết quả học sinh tự báo', 'Trạng thái chấm'];
+    const header = ['Mã học sinh', 'Họ tên', 'Lớp', 'Bài làm', 'Loại bài', 'Kỹ năng', 'Unit', 'Thời gian nộp', 'Kết quả học sinh tự báo', 'Trạng thái chấm'];
     const rows = students.flatMap(student => student.submissions.map(item => [
       student.student_code ?? '', student.full_name ?? '', student.classLabel,
-      item.activity_id ?? '', item.activity_type ?? '', String(item.unit_number ?? ''),
+      item.activity_id ?? '', item.activity_type ?? '', submissionSkill(item) ?? 'Chưa phân loại', String(item.unit_number ?? ''),
       formatDate(submissionDate(item)), scoreText(item), item.grading_status ?? 'Chưa xác định',
     ]));
     const esc = (v: string) => `"${v.replace(/"/g, '""')}"`;
@@ -186,13 +240,35 @@ export const TeacherDashboardScreen: React.FC<TeacherDashboardScreenProps> = ({ 
           ].map(([label, value]) => <div key={String(label)} className="bg-white border rounded-xl p-4"><div className="text-xs text-gray-500">{label}</div><div className="text-2xl font-bold mt-2">{value}</div></div>)}
         </section>
         <p className="text-xs text-amber-800 bg-amber-50 rounded-lg p-3">Điểm hiển thị bên dưới là kết quả do trình duyệt báo cáo (chưa phải điểm giáo viên đã xác minh). Không sử dụng số liệu giả cho tiến độ, XP hoặc lượt truy cập.</p>
+        <div className="flex flex-wrap items-center gap-3 bg-white rounded-xl border p-3">
+          <label htmlFor="teacher-unit-filter" className="text-sm font-semibold">Kết quả theo Unit</label>
+          <select id="teacher-unit-filter" value={selectedUnit} onChange={e => setSelectedUnit(Number(e.target.value))}
+            className="border rounded-lg px-3 py-2 text-sm bg-white">
+            {Array.from({length: 12}, (_, i) => i + 1).map(unit => <option key={unit} value={unit}>Unit {unit}</option>)}
+          </select>
+          <span className="text-xs text-gray-600">Điểm do học sinh gửi, chưa được giáo viên xác minh</span>
+        </div>
         <div className="flex items-center gap-2 bg-white border rounded-xl px-3 py-2"><Search className="w-4 h-4 text-gray-500"/><input className="w-full outline-none text-sm" value={search} onChange={e => setSearch(e.target.value)} placeholder="Tìm học sinh, mã số hoặc lớp…" /></div>
         <div className="overflow-x-auto bg-white border rounded-xl">
           <table className="w-full text-sm text-left">
-            <thead className="bg-[#FAF7F2] text-xs"><tr><th className="p-3">Mã</th><th className="p-3">Học sinh</th><th className="p-3">Lớp</th><th className="p-3">Bài đã nộp</th><th className="p-3">Nộp gần nhất</th><th className="p-3">Xem bài</th></tr></thead>
+            <thead className="bg-[#FAF7F2] text-xs"><tr>
+              <th className="p-3">Mã</th><th className="p-3">Học sinh</th><th className="p-3">Lớp</th>
+              <th className="p-3">Từ vựng</th><th className="p-3">Ngữ pháp</th>
+              <th className="p-3">Thực hành / Nghe</th><th className="p-3">Bài đã nộp</th>
+              <th className="p-3">Chi tiết</th></tr></thead>
             <tbody>
-              {filtered.map(student => <tr key={student.id} className="border-t"><td className="p-3">{student.student_code ?? '—'}</td><td className="p-3 font-semibold">{student.full_name ?? 'Chưa có tên'}</td><td className="p-3">{student.classLabel}</td><td className="p-3">{student.submissions.length}</td><td className="p-3">{formatDate(student.submissions[0] ? submissionDate(student.submissions[0]) : null)}</td><td className="p-3"><button type="button" onClick={() => setSelectedId(String(student.id))} className="text-[#315d8e] font-semibold underline">Chi tiết</button></td></tr>)}
-              {filtered.length === 0 && <tr><td className="p-6 text-center" colSpan={6}>Không tìm thấy học sinh từ Supabase.</td></tr>}
+              {filtered.map(student => <tr key={student.id} className="border-t">
+                <td className="p-3">{student.student_code ?? '—'}</td>
+                <td className="p-3 font-semibold">{student.full_name ?? 'Chưa có tên'}</td>
+                <td className="p-3">{student.classLabel}</td>
+                <td className="p-3">{renderSkillCell(student, 'vocabulary')}</td>
+                <td className="p-3">{renderSkillCell(student, 'grammar')}</td>
+                <td className="p-3">{renderSkillCell(student, 'practice')}</td>
+                <td className="p-3">{student.submissions.length}</td>
+                <td className="p-3"><button type="button" onClick={() => setSelectedId(String(student.id))}
+                  className="text-[#315d8e] font-semibold underline">Chi tiết</button></td>
+              </tr>)}
+              {filtered.length === 0 && <tr><td className="p-6 text-center" colSpan={8}>Không tìm thấy học sinh từ Supabase.</td></tr>}
             </tbody>
           </table>
         </div>

@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { UserProfile } from '../types';
 import { store } from '../services/store';
+import { progressService } from '../services/progressService';
 import {
   GrammarQuestion,
   GRAMMAR_DATA_12_UNITS,
@@ -171,7 +172,7 @@ export const GrammarScreen: React.FC<GrammarScreenProps> = ({
       setIsCompleted(true);
       const totalQ = activeQuestions.length || 1;
       const percentage = Math.round(((score + (feedback === 'correct' ? 0 : 0)) / totalQ) * 100);
-      store.recordQuizAttempt({
+      const savedAttempt = store.recordQuizAttempt({
         studentId: user.id,
         unit: selectedUnit,
         module: 'grammar',
@@ -182,6 +183,7 @@ export const GrammarScreen: React.FC<GrammarScreenProps> = ({
         percentage,
         xpEarned: percentage >= 80 ? 30 : 15,
       });
+      void progressService.submitAttempt(user, savedAttempt);
       store.updateModuleProgress(user.id, selectedUnit, 'grammar', Math.max(70, percentage));
       onUpdateProgress();
     }

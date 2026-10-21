@@ -1,3 +1,4 @@
+import { progressService } from '../../services/progressService';
 import React, { useState, useEffect, useMemo } from 'react';
 import { Check, X, Volume2, ArrowRight, RotateCcw, AlertCircle, Sparkles } from 'lucide-react';
 import { UserProfile, VocabPracticeResult } from '../../types';
@@ -198,6 +199,7 @@ export const ChooseMeaningExercise: React.FC<ChooseMeaningExerciseProps> = ({
       };
 
       store.saveVocabPracticeResult(result);
+    void progressService.handleVocabPracticeCompleted(user, result);
       setResultData(result);
       setIsFinished(true);
       onComplete();

@@ -6,6 +6,7 @@ import { VocabularyCard } from '../components/VocabularyCard';
 import { Flashcard } from '../components/Flashcard';
 import { AudioButton } from '../components/AudioButton';
 import { store } from '../services/store';
+import { progressService } from '../services/progressService';
 import { MatchExercise } from '../components/vocabulary/MatchExercise';
 import { ChooseMeaningExercise } from '../components/vocabulary/ChooseMeaningExercise';
 import { ListenChooseExercise } from '../components/vocabulary/ListenChooseExercise';
@@ -276,7 +277,7 @@ export const VocabularyScreen: React.FC<VocabularyScreenProps> = ({
       // Complete quiz
       setQuizCompleted(true);
       const percentage = Math.round((quizScore / quizQuestions.length) * 100);
-      store.recordQuizAttempt({
+      const savedAttempt = store.recordQuizAttempt({
         studentId: user.id,
         unit: selectedUnit || 1,
         module: 'vocabulary',
@@ -287,6 +288,7 @@ export const VocabularyScreen: React.FC<VocabularyScreenProps> = ({
         percentage,
         xpEarned: percentage >= 80 ? 25 : 15,
       });
+      void progressService.submitAttempt(user, savedAttempt);
       store.updateModuleProgress(user.id, selectedUnit || 1, 'vocabulary', Math.max(85, percentage));
       onUpdateProgress();
     }

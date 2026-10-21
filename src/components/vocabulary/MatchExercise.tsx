@@ -1,3 +1,4 @@
+import { progressService } from '../../services/progressService';
 import React, { useState, useEffect, useMemo } from 'react';
 import { Check, X, Sparkles, RotateCcw, ArrowRight, Volume2 } from 'lucide-react';
 import { UserProfile, VocabPracticeResult } from '../../types';
@@ -218,6 +219,7 @@ export const MatchExercise: React.FC<MatchExerciseProps> = ({
     };
 
     store.saveVocabPracticeResult(result);
+    void progressService.handleVocabPracticeCompleted(user, result);
     setResultData(result);
     setIsFinished(true);
     onComplete();
