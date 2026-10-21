@@ -186,7 +186,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
               <div>
                 <label htmlFor="student-code" className={labelClass}>Mã học sinh</label>
                 <input id="student-code" className={inputClass} value={studentCode} onChange={e => setStudentCode(e.target.value)}
-                  autoComplete="username" placeholder="Ví dụ: HS9A1-10" required />
+                  autoComplete="off" placeholder="Ví dụ: HS9A1-10" required />
               </div>
               <div>
                 <label htmlFor="student-password" className={labelClass}>Mật khẩu</label>
