@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { UserProfile, Exercise } from '../types';
 import { UNIT_1_CHALLENGE_QUESTIONS } from '../data/unitsData';
 import { store } from '../services/store';
+import { progressService } from '../services/progressService';
 import { AudioButton } from '../components/AudioButton';
 import {
   Trophy,
@@ -86,7 +87,7 @@ export const UnitChallengeScreen: React.FC<UnitChallengeScreenProps> = ({
     setIsSubmitted(true);
 
     // Save full quiz attempt
-    store.recordQuizAttempt({
+    const savedAttempt = store.recordQuizAttempt({
       studentId: user.id,
       unit: 1,
       module: 'challenge',
@@ -97,6 +98,7 @@ export const UnitChallengeScreen: React.FC<UnitChallengeScreenProps> = ({
       percentage,
       xpEarned: xp,
     });
+      void progressService.submitAttempt(user, savedAttempt);
 
     store.updateModuleProgress(user.id, 1, 'practice', 100);
     onUpdateProgress();

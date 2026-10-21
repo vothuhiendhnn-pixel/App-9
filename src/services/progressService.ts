@@ -20,6 +20,7 @@ export interface ExerciseResultPayload {
   passed: boolean;
   xpEarned: number;
   attempt?: number;
+  clientAttemptId?: string;
 }
 
 export interface WordReviewPayload {
@@ -103,58 +104,105 @@ class ProgressService {
   /**
    * Store one completed exercise on Supabase. Each call creates one submission.
    * Browser-calculated scores remain UNVERIFIED pending trusted server grading.
-   * The RLS INSERT policy must require students.user_id = auth.uid().
+   * A SECURITY DEFINER RPC must validate the student credential for every submission.
    */
   public async recordExerciseResult(payload: ExerciseResultPayload): Promise<void> {
-    const { student, unit, skill, exercise, score, correct, total, passed, xpEarned, attempt } = payload;
+    const { student, unit, skill, exercise, score, correct, total, passed, xpEarned, attempt, clientAttemptId } = payload;
     if (!student?.id) throw new Error('Không tìm thấy học sinh.');
 
-    const { data: sessionData, error: sessionError } = await supabase.auth.getUser();
-    if (sessionError || !sessionData.user) {
-      throw new Error('Chưa có phiên Supabase Auth. Vui lòng đăng nhập lại để nộp bài.');
-    }
+    const credentials = studentService.getSubmissionCredential(student.id);
+    if (!credentials) throw new Error('Phiên học sinh đã hết. Hãy đăng xuất, đăng nhập lại và nộp bài mới.');
 
-    // Verify the Auth user owns the student profile before attempting INSERT.
-    const { data: studentRow, error: studentError } = await supabase
-      .from('students')
-      .select('id, user_id, active')
-      .eq('id', student.id)
-      .eq('user_id', sessionData.user.id)
-      .single();
-    if (studentError || !studentRow || studentRow.active === false) {
-      throw new Error('Tài khoản không có quyền nộp bài cho học sinh này.');
+    // The server checks the student code/password itself before writing the row.
+    // Client score is UNVERIFIED; never mistake this for teacher-graded marks.
+    const { data, error } = await supabase.rpc('student_submit_result', {
+      p_student_code: credentials.code,
+      p_password: credentials.password,
+      p_student_id: student.id,
+      p_unit: unit,
+      p_skill: skill.toLowerCase(),
+      p_exercise: exercise,
+      p_score: score,
+      p_correct: correct,
+      p_total: total,
+      p_passed: passed,
+      p_attempt: attempt ?? 1,
+      p_xp: xpEarned,
+      p_client_attempt_id: clientAttemptId ?? '',
+    });
+    if (error) {
+      console.error('Submission RPC failed:', { code: error.code, message: error.message });
+      throw new Error('Chưa ghi nhận trên Supabase: ' + error.message);
     }
-
-    const submission = {
-      student_id: student.id,
-      submitted_by: sessionData.user.id,
-      activity_id: `${skill.toLowerCase()}-u${unit}-${exercise}`,
-      activity_type: skill.toLowerCase(),
-      unit_number: unit,
-      answers: {
-        exercise,
-        correct,
-        total,
-        passed,
-        attempt: attempt ?? null,
-        xpEarned,
-        clientReportedScore: score,
-        // These are only summary statistics. Answer-level data is not present
-        // in ExerciseResultPayload, so do not claim full answers were captured.
-      },
-      // Browser scores must never be accepted as verified teacher grades.
-      grading_status: 'pending',
-    };
-    const { error: insertError } = await supabase.from('submissions').insert(submission);
-    if (insertError) {
-      console.error('Supabase submission failure:', insertError);
-      throw new Error(`Chưa lưu được bài lên Supabase: ${insertError.message}`);
-    }
+    if (!data) throw new Error('Máy chủ chưa xác nhận nhận bài; không đánh dấu đã nộp.');
 
     // Update local display only after server has acknowledged the submission.
     // Do not award XP twice: store.recordQuizAttempt already awards XP.
     const freshUser = store.getUsers().find(u => u.id === student.id) || student;
     await this.autoSaveStudentProgress(freshUser, `${skill} Unit ${unit}: ${exercise} (đã nộp)`);
+  }
+
+  public async submitAttempt(student: UserProfile, attempt: {
+    id?: string; unit: number; module: string; activityName: string; score: number; maxScore: number;
+    percentage: number; xpEarned: number; attemptNumber: number;
+  }): Promise<void> {
+    const map: Record<string, ExerciseResultPayload['skill']> = {
+      vocabulary: 'Vocabulary', grammar: 'Grammar', practice: 'Practice',
+      listening: 'Listening', challenge: 'Practice', pronunciation: 'Pronunciation',
+    };
+    const skill = map[attempt.module];
+    if (!skill) return;
+    this.emitSaveStatus('saving', 'Đang gửi bài lên Supabase…');
+    try {
+      await this.recordExerciseResult({
+        student, unit: attempt.unit, skill, exercise: attempt.activityName,
+        score: attempt.percentage, correct: attempt.score, total: attempt.maxScore,
+        passed: attempt.percentage >= 80, xpEarned: attempt.xpEarned,
+        attempt: attempt.attemptNumber, clientAttemptId: attempt.id ?? '',
+      });
+      this.emitSaveStatus('success', 'Đã lưu bài thật lên Supabase.');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Không lưu được bài lên Supabase.';
+      this.emitSaveStatus('error', message);
+      // Do not erase the local attempt; the student may need to retry after login.
+    }
+  }
+
+  /** Retry the CURRENT student's locally stored results, without deleting them.
+   * Server-side clientAttemptId deduplicates submissions already received. */
+  public async resendLocalAttempts(student: UserProfile): Promise<{ sent: number; failed: number }> {
+    const attempts = store.getQuizAttempts(student.id).filter(a =>
+      a.studentId === student.id && a.id && a.score >= 0 && a.maxScore > 0
+    );
+    let sent = 0, failed = 0;
+    this.emitSaveStatus('saving', `Đang đối chiếu ${attempts.length} bài trên thiết bị…`);
+    for (const attempt of attempts) {
+      const skillMap: Record<string, ExerciseResultPayload['skill']> = {
+        vocabulary: 'Vocabulary', grammar: 'Grammar', practice: 'Practice',
+        challenge: 'Practice', pronunciation: 'Pronunciation',
+      };
+      const skill = skillMap[attempt.module];
+      if (!skill) continue;
+      try {
+        await this.recordExerciseResult({
+          student, unit: attempt.unit, skill, exercise: attempt.activityName,
+          score: attempt.percentage, correct: attempt.score, total: attempt.maxScore,
+          passed: attempt.percentage >= 80, xpEarned: attempt.xpEarned,
+          attempt: attempt.attemptNumber, clientAttemptId: attempt.id,
+        });
+        sent++;
+      } catch (error) {
+        failed++;
+        console.warn('Local submission retry failed:', error instanceof Error ? error.message : error);
+      }
+    }
+    this.emitSaveStatus(failed ? 'error' : 'success',
+      `Đối chiếu Supabase: ${sent} bài đã được máy chủ xác nhận, ${failed} bài chưa gửi được.`);
+    return { sent, failed };
+  }
+
+  private emitSaveStatus(status: 'saving' | 'success' | 'error', message: string) {
+    window.dispatchEvent(new CustomEvent('english9:submission-status', { detail: { status, message } }));
   }
 
   /**
@@ -185,18 +233,25 @@ class ProgressService {
 
     const xpEarned = result.passed ? 20 : 5;
 
-    await this.recordExerciseResult({
-      student,
-      unit: result.unit,
-      skill: 'Vocabulary',
-      exercise: activityNames[result.practiceType] || result.practiceType,
-      score: result.score,
-      correct: result.correctCount,
-      total: result.totalQuestions,
-      passed: result.passed,
-      xpEarned,
-      attempt: result.attemptNumber,
-    });
+    this.emitSaveStatus('saving', 'Đang gửi bài Từ vựng lên Supabase…');
+    try {
+      await this.recordExerciseResult({
+        student,
+        unit: result.unit,
+        skill: 'Vocabulary',
+        exercise: activityNames[result.practiceType] || result.practiceType,
+        score: result.percentage,
+        correct: result.correctCount,
+        total: result.totalQuestions,
+        passed: result.passed,
+        xpEarned,
+        attempt: result.attemptNumber,
+        clientAttemptId: `vocab-${result.studentId}-${result.unit}-${result.practiceType}-${result.createdAt}`,
+      });
+      this.emitSaveStatus('success', 'Đã gửi bài Từ vựng thật lên Supabase.');
+    } catch (error) {
+      this.emitSaveStatus('error', error instanceof Error ? error.message : 'Không gửi được bài từ vựng.');
+    }
   }
 
   /**

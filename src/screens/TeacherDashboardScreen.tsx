@@ -1,390 +1,284 @@
-import { createClient } from '@supabase/supabase-js';
-import React, { useState } from 'react';
-import { UserProfile } from '../types';
-import { store } from '../services/store';
-import { TeacherSummaryCard } from '../components/TeacherSummaryCard';
-import {
-  Users,
-  UserCheck,
-  LogIn,
-  Trophy,
-  Search,
-  Filter,
-  Download,
-  ArrowUpDown,
-  ChevronRight,
-  Shield,
-  Clock,
-  Sparkles,
-  BookOpen,
-} from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { ArrowLeft, Download, RefreshCcw, Search, ShieldCheck } from 'lucide-react';
+import { supabase } from '../lib/supabaseClient';
+import type { UserProfile } from '../types';
 
 interface TeacherDashboardScreenProps {
   user: UserProfile;
-  onSelectStudent: (studentId: string) => void;
+  onSelectStudent?: (studentId: string) => void;
+  onBack?: () => void;
 }
 
-export const TeacherDashboardScreen: React.FC<TeacherDashboardScreenProps> = ({
-  user,
-  onSelectStudent,
-}) => {
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedClass, setSelectedClass] = useState([]);
-  const [scoreFilter, setScoreFilter] = useState('All');
-  const [sortBy, setSortBy] = useState<'loginCount' | 'avgScore' | 'highestScore' | 'progress' | 'xp' | 'lastLogin'>('avgScore');
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
-  const [showExportMenu, setShowExportMenu] = useState(false);
+type StudentRow = {
+  id: string;
+  student_code: string | null;
+  full_name: string | null;
+  class_id: string | null;
+  active: boolean | null;
+  created_at?: string | null;
+  class_name?: string | null;
+};
 
-  const analytics = store.getTeacherAnalytics();
+type SubmissionRow = {
+  id?: string;
+  student_id: string;
+  activity_id: string | null;
+  activity_type: string | null;
+  unit_number: number | null;
+  created_at?: string | null;
+  submitted_at?: string | null;
+  completed_at?: string | null;
+  grading_status?: string | null;
+  score?: number | null;
+  answers?: Record<string, unknown> | null;
+};
 
-  // Filter students
-  let filteredStudents = analytics.students.filter((s) => {
-    const matchSearch =
-      s.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      s.email.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchClass = selectedClass === 'All' || s.className === selectedClass;
+type StudentWithSubmissions = StudentRow & {
+  classLabel: string;
+  submissions: SubmissionRow[];
+};
 
-    let matchScore = true;
-    if (scoreFilter === 'high') matchScore = s.avgScore >= 80;
-    if (scoreFilter === 'medium') matchScore = s.avgScore >= 60 && s.avgScore < 80;
-    if (scoreFilter === 'low') matchScore = s.avgScore < 60;
+const formatDate = (iso?: string | null) => {
+  if (!iso) return '—';
+  const date = new Date(iso);
+  return Number.isFinite(date.getTime()) ? date.toLocaleString('vi-VN') : '—';
+};
 
-    return matchSearch && matchClass && matchScore;
-  });
+const submissionDate = (submission: SubmissionRow): string | null =>
+  submission.submitted_at ?? submission.created_at ?? submission.completed_at ?? null;
 
-  // Sort students
-  filteredStudents.sort((a, b) => {
-    let valA: any = a[sortBy];
-    let valB: any = b[sortBy];
+const scoreText = (submission: SubmissionRow) => {
+  const correct = submission.answers?.correct;
+  const total = submission.answers?.total;
+  const clientScore = submission.answers?.clientReportedScore;
+  if (typeof correct === 'number' && typeof total === 'number' && total > 0 && correct >= 0 && correct <= total) {
+    const percentage = typeof clientScore === 'number' && Number.isFinite(clientScore) && clientScore >= 0 && clientScore <= 100
+      ? Math.round(clientScore)
+      : Math.round(correct / total * 100);
+    return `${correct}/${total} (${percentage}%)`;
+  }
+  // Legacy graded quizzes have a numeric score but no reliable denominator.
+  // Show the recorded grade without inventing a percentage.
+  const savedScore = submission.score;
+  if (submission.grading_status === 'graded' && typeof savedScore === 'number' && Number.isFinite(savedScore)) {
+    return `Điểm đã chấm: ${savedScore}`;
+  }
+  return 'Chưa có số liệu';
+};
 
-    if (sortBy === 'lastLogin') {
-      valA = new Date(a.lastLogin).getTime();
-      valB = new Date(b.lastLogin).getTime();
-    }
+export const TeacherDashboardScreen: React.FC<TeacherDashboardScreenProps> = ({ user, onBack }) => {
+  const [students, setStudents] = useState<StudentWithSubmissions[]>([]);
+  const [search, setSearch] = useState('');
+  const [selectedUnit, setSelectedUnit] = useState(1);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
 
-    if (valA < valB) return sortOrder === 'asc' ? -1 : 1;
-    if (valA > valB) return sortOrder === 'asc' ? 1 : -1;
-    return 0;
-  });
-
-  const handleSort = (field: typeof sortBy) => {
-    if (sortBy === field) {
-      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
-    } else {
-      setSortBy(field);
-      setSortOrder('desc');
-    }
-  };
-
-  const handleDownloadReport = (type: 'scores' | 'logins' | 'progress') => {
-    const csvContent = store.exportReportCSV(type);
-    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.setAttribute('href', url);
-    link.setAttribute('download', `English9_MissHien_${type}_${new Date().toISOString().slice(0, 10)}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    setShowExportMenu(false);
-  };
-  React.useEffect(() => {
-    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
-    const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
-    if (!supabaseUrl || !supabaseKey) return;
-    const supabase = createClient(supabaseUrl, supabaseKey);
-
-    const fetchRealData = async () => {
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setLoading(true);
+      setError(null);
       try {
-        const { data, error } = await supabase.from('students').select('*').order('created_at', { ascending: false });
-        if (data && data.length > 0) {
-          const mapped = data.map((s, i) => ({
-            id: s.id || String(i),
-            name: s.full_name || s.name || s.student_code || 'Học sinh',
-            email: (s.student_code ? s.student_code.toLowerCase() : 'hs') + '@student.edu.vn',
-            class: '9A1',
-            visits: s.visits || 1,
-            lastActive: s.last_login || s.created_at || new Date().toISOString(),
-            completedLessons: s.completed_lessons || 0,
-            avgScore: s.avg_score || 0,
-            highScore: s.high_score || 0,
-            xp: s.xp || 0,
-            progress: s.progress || 0,
-            status: 'Hoạt động'
-          }));
-          setSelectedClass(mapped);
-        } else {
-          setSelectedClass([]);
+        const { data: auth, error: authError } = await supabase.auth.getUser();
+        if (authError || !auth.user) throw new Error('Phiên đăng nhập Supabase không hợp lệ. Vui lòng đăng nhập lại.');
+
+        const studentsResponse = await supabase
+          .from('students')
+          .select('id, student_code, full_name, class_id, active, created_at')
+          .order('student_code', { ascending: true });
+        if (studentsResponse.error) throw new Error(`Không đọc được danh sách học sinh: ${studentsResponse.error.message}`);
+
+        const submissionsResponse = await supabase
+          .from('submissions')
+          .select('*')
+          .limit(1000);
+        if (submissionsResponse.error) throw new Error(`Không đọc được bài nộp: ${submissionsResponse.error.message}`);
+
+        // Read class labels if RLS allows it; never fabricate the class for a student.
+        const classLabels = new Map<string, string>();
+        const classResponse = await supabase.from('classes').select('*');
+        if (!classResponse.error && classResponse.data) {
+          for (const item of classResponse.data) {
+            const label = item.class_name ?? item.name ?? item.code;
+            if (item.id != null && typeof label === 'string') classLabels.set(String(item.id), label);
+          }
         }
-      } catch (err) {
-        console.error("Lỗi Supabase:", err);
+
+        const allStudents = (studentsResponse.data ?? []) as StudentRow[];
+        const studentIds = new Set(allStudents.map(s => String(s.id)));
+        const byStudent = new Map<string, SubmissionRow[]>();
+        for (const submission of (submissionsResponse.data ?? []) as SubmissionRow[]) {
+          const id = String(submission.student_id);
+          // Discard orphan/mismatched records from DISPLAY ONLY, never from the database.
+          if (!studentIds.has(id)) continue;
+          byStudent.set(id, [...(byStudent.get(id) ?? []), submission]);
+        }
+
+        for (const entries of byStudent.values()) {
+          entries.sort((a, b) => {
+            const at = Date.parse(submissionDate(a) ?? '') || 0;
+            const bt = Date.parse(submissionDate(b) ?? '') || 0;
+            return bt - at;
+          });
+        }
+
+        const mapped: StudentWithSubmissions[] = allStudents
+          .map(s => ({
+            ...s,
+            classLabel: s.class_id != null ? (classLabels.get(String(s.class_id)) ?? 'Chưa xác định') : 'Chưa xác định',
+            submissions: byStudent.get(String(s.id)) ?? [],
+          }));
+        if (!cancelled) setStudents(mapped);
+      } catch (e) {
+        if (!cancelled) {
+          setStudents([]); // Fail closed: do not fall back to demo/local storage.
+          setError(e instanceof Error ? e.message : 'Không thể đọc dữ liệu Supabase.');
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
       }
     };
-    fetchRealData();
-  }, []);
+    void load();
+    return () => { cancelled = true; };
+  }, [reloadKey]);
+
+  const filtered = useMemo(() => {
+    const term = search.trim().toLocaleLowerCase('vi-VN');
+    return students.filter(s => `${s.full_name ?? ''} ${s.student_code ?? ''} ${s.classLabel}`.toLocaleLowerCase('vi-VN').includes(term));
+  }, [students, search]);
+
+  // New submissions use activity_type='quiz' (database CHECK constraint),
+  // while the actual educational skill is stored in answers.skill.
+  // Legacy submissions without an identifiable skill remain unclassified;
+  // we never guess that an old generic quiz belongs to Vocabulary.
+  type SkillKey = 'vocabulary' | 'grammar' | 'practice';
+  const submissionSkill = (item: SubmissionRow): string | null => {
+    const explicit = item.answers?.skill;
+    if (typeof explicit === 'string' && explicit.trim()) return explicit.trim().toLowerCase();
+
+    const legacyType = (item.activity_type ?? '').trim().toLowerCase();
+    if (['vocabulary', 'grammar', 'listening', 'practice', 'challenge', 'pronunciation'].includes(legacyType)) {
+      return legacyType;
+    }
+
+    // Only explicit skill prefixes count. "quiz-unit-1" is ambiguous.
+    const activity = (item.activity_id ?? '').trim().toLowerCase();
+    const match = /^(vocabulary|grammar|listening|practice|challenge|pronunciation)(?:-|$)/.exec(activity);
+    return match ? match[1] : null;
+  };
+
+  const findSkillSubmission = (student: StudentWithSubmissions, skill: SkillKey): SubmissionRow | null => {
+    // submissions were sorted newest-first when fetched from Supabase.
+    return student.submissions.find(item => {
+      if (Number(item.unit_number) !== selectedUnit) return false;
+      const kind = submissionSkill(item);
+      return skill === 'practice'
+        ? kind !== null && ['listening', 'practice', 'challenge'].includes(kind)
+        : kind === skill;
+    }) ?? null;
+  };
+
+  const renderSkillCell = (student: StudentWithSubmissions, skill: SkillKey) => {
+    const result = findSkillSubmission(student, skill);
+    if (!result) return <span className="text-gray-400">Chưa nộp</span>;
+    const pending = result.grading_status === 'pending';
+    return <button type="button" onClick={() => setSelectedId(String(student.id))}
+      className="flex flex-col items-start font-semibold text-[#315d8e] underline" title="Xem các lần nộp bài">
+      <span>{scoreText(result)}</span>
+      {pending && <span className="text-[10px] font-normal text-amber-700 no-underline">Chờ xác minh</span>}
+    </button>;
+  };
+
+  const submissionCount = students.reduce((sum, s) => sum + s.submissions.length, 0);
+  const studentsWithWork = students.filter(s => s.submissions.length > 0).length;
+  const selected = students.find(s => String(s.id) === selectedId) ?? null;
+
+  const exportRealCsv = () => {
+    const header = ['Mã học sinh', 'Họ tên', 'Lớp', 'Bài làm', 'Loại bài', 'Kỹ năng', 'Unit', 'Thời gian nộp', 'Kết quả học sinh tự báo', 'Trạng thái chấm'];
+    const rows = students.flatMap(student => student.submissions.map(item => [
+      student.student_code ?? '', student.full_name ?? '', student.classLabel,
+      item.activity_id ?? '', item.activity_type ?? '', submissionSkill(item) ?? 'Chưa phân loại', String(item.unit_number ?? ''),
+      formatDate(submissionDate(item)), scoreText(item), item.grading_status ?? 'Chưa xác định',
+    ]));
+    const esc = (v: string) => `"${v.replace(/"/g, '""')}"`;
+    const content = '\uFEFF' + [header, ...rows].map(r => r.map(esc).join(',')).join('\r\n');
+    const url = URL.createObjectURL(new Blob([content], { type: 'text/csv;charset=utf-8' }));
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'English9_ket_qua_Supabase.csv';
+    link.click();
+    URL.revokeObjectURL(url);
+  };
 
   return (
-    <div className="space-y-6 pb-24 max-w-6xl mx-auto px-4 pt-4 sm:px-6">
-      {/* Dashboard Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <main className="max-w-6xl mx-auto px-4 py-6 pb-20 space-y-5 text-[#2D332A]">
+      <header className="flex flex-wrap justify-between gap-3 items-center">
         <div>
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-black bg-[#FAF2E4] border border-[#F0DEBA] text-[#8E5D32] px-2.5 py-0.5 rounded-full flex items-center gap-1">
-              <Shield className="w-3.5 h-3.5" />
-              Quyền Giáo Viên
-            </span>
-            <span className="text-xs text-[#5C6B57] font-bold">Khối 9 • Global Success</span>
-          </div>
-          <h1 className="text-2xl sm:text-3xl font-black text-[#2D332A] font-serif mt-1 tracking-tight">
-            Teacher Dashboard
-          </h1>
-          <p className="text-xs sm:text-sm text-[#5C6B57] font-medium">
-            Theo dõi tiến độ, thời lượng truy cập và điểm số chi tiết của học sinh.
-          </p>
+          <div className="flex gap-2 items-center text-xs text-[#5A7258] font-bold"><ShieldCheck className="w-4 h-4"/> DỮ LIỆU THẬT • SUPABASE</div>
+          <h1 className="text-2xl font-bold mt-1">Dashboard giáo viên</h1>
+          <p className="text-xs text-gray-600 mt-1">Giáo viên: {user.name}. Chỉ hiển thị học sinh và bài nộp đọc được từ Supabase.</p>
         </div>
-
-        {/* Export Dropdown */}
-        <div className="relative">
-          <button
-            onClick={() => setShowExportMenu(!showExportMenu)}
-            className="bg-[#4B5D44] hover:bg-[#3D4C37] text-white px-4 py-2.5 rounded-xl font-bold text-xs shadow-xs transition-all flex items-center gap-2"
-          >
-            <Download className="w-4 h-4" />
-            <span>Xuất Báo Cáo (CSV / Excel)</span>
-          </button>
-
-          {showExportMenu && (
-            <>
-              <div className="fixed inset-0 z-30" onClick={() => setShowExportMenu(false)} />
-              <div className="absolute right-0 mt-2 w-56 bg-white rounded-2xl shadow-xl border border-[#E5DDD0] p-2 z-40 space-y-1">
-                <button
-                  onClick={() => handleDownloadReport('scores')}
-                  className="w-full text-left px-3 py-2 rounded-xl text-xs font-bold text-[#2D332A] hover:bg-[#FAF7F2]"
-                >
-                  📊 Báo cáo điểm thi chi tiết
-                </button>
-                <button
-                  onClick={() => handleDownloadReport('logins')}
-                  className="w-full text-left px-3 py-2 rounded-xl text-xs font-bold text-[#2D332A] hover:bg-[#FAF7F2]"
-                >
-                  ⏱️ Báo cáo thời lượng truy cập
-                </button>
-                <button
-                  onClick={() => handleDownloadReport('progress')}
-                  className="w-full text-left px-3 py-2 rounded-xl text-xs font-bold text-[#2D332A] hover:bg-[#FAF7F2]"
-                >
-                  📈 Báo cáo tiến độ cả lớp
-                </button>
-              </div>
-            </>
-          )}
+        <div className="flex flex-wrap gap-2">
+          {onBack && <button type="button" onClick={onBack} className="flex gap-1 items-center px-3 py-2 rounded-xl border bg-white text-xs"><ArrowLeft className="w-4 h-4"/> Thoát</button>}
+          <button type="button" onClick={() => setReloadKey(k => k + 1)} className="flex gap-1 items-center px-3 py-2 rounded-xl border bg-white text-xs"><RefreshCcw className="w-4 h-4"/> Tải lại</button>
+          <button type="button" disabled={loading || !!error} onClick={exportRealCsv} className="flex gap-1 items-center px-3 py-2 rounded-xl bg-[#4B5D44] text-white text-xs disabled:opacity-40"><Download className="w-4 h-4"/> Xuất CSV thật</button>
         </div>
-      </div>
+      </header>
 
-      {/* 4 Summary Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
-        <TeacherSummaryCard
-          title="Tổng số học sinh"
-          value={analytics.totalStudents}
-          subtitle="học sinh"
-          icon={Users}
-          color="blue"
-        />
-        <TeacherSummaryCard
-          title="Truy cập hôm nay"
-          value={analytics.activeTodayCount}
-          subtitle="học sinh"
-          icon={UserCheck}
-          color="green"
-        />
-        <TeacherSummaryCard
-          title="Tổng lượt truy cập"
-          value={analytics.totalLogins}
-          subtitle="phiên học"
-          icon={LogIn}
-          color="yellow"
-        />
-        <TeacherSummaryCard
-          title="Điểm trung bình"
-          value={`${analytics.avgScore}%`}
-          subtitle="toàn khối"
-          icon={Trophy}
-          color="red"
-        />
-      </div>
+      {loading && <p className="p-5 bg-white rounded-xl">Đang tải học sinh và bài nộp từ Supabase…</p>}
+      {error && <div role="alert" className="p-4 rounded-xl bg-red-50 text-red-700 text-sm">{error} — Kiểm tra quyền đọc bảng (RLS) trước khi thử lại; hệ thống không hiển thị dữ liệu mẫu thay thế.</div>}
 
-      {/* Filters and Search Bar */}
-      <div className="bg-white rounded-2xl p-4 border border-[#E5DDD0] shadow-xs space-y-3">
-        <div className="flex flex-col sm:flex-row items-center gap-3">
-          {/* Search Input */}
-          <div className="relative flex-1 w-full">
-            <Search className="w-4 h-4 text-[#5C6B57] absolute left-3.5 top-1/2 -translate-y-1/2" />
-            <input
-              type="text"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Tìm kiếm theo tên học sinh hoặc email..."
-              className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-[#E5DDD0] text-xs font-medium focus:border-[#4B5D44] focus:outline-hidden"
-            />
-          </div>
-
-          {/* Class Filter */}
-          <div className="flex items-center gap-2 w-full sm:w-auto">
-            <span className="text-xs font-bold text-[#5C6B57] whitespace-nowrap">Lớp:</span>
-            <select
-              value={selectedClass}
-              onChange={(e) => setSelectedClass(e.target.value)}
-              className="bg-[#FAF7F2] border border-[#E5DDD0] rounded-xl px-3 py-2 text-xs font-bold text-[#2D332A] focus:outline-hidden"
-            >
-              <option value="All">Tất cả (Khối 9)</option>
-              <option value='9A1'>Lớp 9A1</option>
-              
-              
-            </select>
-          </div>
-
-          {/* Score Level Filter */}
-          <div className="flex items-center gap-2 w-full sm:w-auto">
-            <span className="text-xs font-bold text-[#5C6B57] whitespace-nowrap">Điểm:</span>
-            <select
-              value={scoreFilter}
-              onChange={(e) => setScoreFilter(e.target.value)}
-              className="bg-[#FAF7F2] border border-[#E5DDD0] rounded-xl px-3 py-2 text-xs font-bold text-[#2D332A] focus:outline-hidden"
-            >
-              <option value="All">Tất cả mức điểm</option>
-              <option value="high">Điểm cao (&ge; 80%)</option>
-              <option value="medium">Trung bình (60% - 79%)</option>
-              <option value="low">Cần lưu ý (&lt; 60%)</option>
-            </select>
-          </div>
+      {!loading && !error && <>
+        <section className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {[
+            ['Học sinh thực', students.length],
+            ['Đã nộp bài', studentsWithWork],
+            ['Tổng bài nộp', submissionCount],
+            ['Chưa có bài nộp', students.length - studentsWithWork],
+          ].map(([label, value]) => <div key={String(label)} className="bg-white border rounded-xl p-4"><div className="text-xs text-gray-500">{label}</div><div className="text-2xl font-bold mt-2">{value}</div></div>)}
+        </section>
+        <p className="text-xs text-amber-800 bg-amber-50 rounded-lg p-3">Điểm hiển thị bên dưới là kết quả do trình duyệt báo cáo (chưa phải điểm giáo viên đã xác minh). Không sử dụng số liệu giả cho tiến độ, XP hoặc lượt truy cập.</p>
+        <div className="flex flex-wrap items-center gap-3 bg-white rounded-xl border p-3">
+          <label htmlFor="teacher-unit-filter" className="text-sm font-semibold">Kết quả theo Unit</label>
+          <select id="teacher-unit-filter" value={selectedUnit} onChange={e => setSelectedUnit(Number(e.target.value))}
+            className="border rounded-lg px-3 py-2 text-sm bg-white">
+            {Array.from({length: 12}, (_, i) => i + 1).map(unit => <option key={unit} value={unit}>Unit {unit}</option>)}
+          </select>
+          <span className="text-xs text-gray-600">Điểm do học sinh gửi, chưa được giáo viên xác minh</span>
         </div>
-      </div>
-
-      {/* Student Management Table */}
-      <div className="bg-white rounded-2xl border border-[#E5DDD0] shadow-xs overflow-hidden">
-        <div className="p-4 border-b border-[#EBE3D5] flex items-center justify-between">
-          <h2 className="font-extrabold text-base text-[#2D332A] font-serif">
-            Danh Sách Học Sinh ({filteredStudents.length})
-          </h2>
-          <span className="text-xs text-[#5C6B57]">Nhấp vào học sinh để xem chi tiết bài làm</span>
-        </div>
-
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs border-collapse">
-            <thead>
-              <tr className="bg-[#FAF7F2] border-b border-[#E5DDD0] text-[#5C6B57] font-bold uppercase tracking-wider text-[11px]">
-                <th className="py-3.5 px-4">Họ tên</th>
-                <th className="py-3.5 px-3">Lớp</th>
-                <th
-                  onClick={() => handleSort('loginCount')}
-                  className="py-3.5 px-3 cursor-pointer hover:text-[#2D332A] whitespace-nowrap"
-                >
-                  <div className="flex items-center gap-1">
-                    <span>Lượt truy cập</span>
-                    <ArrowUpDown className="w-3 h-3" />
-                  </div>
-                </th>
-                <th
-                  onClick={() => handleSort('lastLogin')}
-                  className="py-3.5 px-3 cursor-pointer hover:text-[#2D332A] whitespace-nowrap"
-                >
-                  <div className="flex items-center gap-1">
-                    <span>Truy cập gần nhất</span>
-                    <ArrowUpDown className="w-3 h-3" />
-                  </div>
-                </th>
-                <th className="py-3.5 px-3">Bài đã làm</th>
-                <th
-                  onClick={() => handleSort('avgScore')}
-                  className="py-3.5 px-3 cursor-pointer hover:text-[#2D332A] whitespace-nowrap"
-                >
-                  <div className="flex items-center gap-1">
-                    <span>Điểm TB</span>
-                    <ArrowUpDown className="w-3 h-3" />
-                  </div>
-                </th>
-                <th
-                  onClick={() => handleSort('highestScore')}
-                  className="py-3.5 px-3 cursor-pointer hover:text-[#2D332A] whitespace-nowrap"
-                >
-                  <div className="flex items-center gap-1">
-                    <span>Điểm cao nhất</span>
-                    <ArrowUpDown className="w-3 h-3" />
-                  </div>
-                </th>
-                <th
-                  onClick={() => handleSort('xp')}
-                  className="py-3.5 px-3 cursor-pointer hover:text-[#2D332A] whitespace-nowrap"
-                >
-                  <div className="flex items-center gap-1">
-                    <span>XP</span>
-                    <ArrowUpDown className="w-3 h-3" />
-                  </div>
-                </th>
-                <th
-                  onClick={() => handleSort('progress')}
-                  className="py-3.5 px-3 cursor-pointer hover:text-[#2D332A] whitespace-nowrap"
-                >
-                  <div className="flex items-center gap-1">
-                    <span>Tiến độ</span>
-                    <ArrowUpDown className="w-3 h-3" />
-                  </div>
-                </th>
-                <th className="py-3.5 px-3">Trạng thái</th>
-                <th className="py-3.5 px-3"></th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-[#EBE3D5]">
-              {filteredStudents.length > 0 ? (
-                filteredStudents.map((s) => (
-                  <tr
-                    key={s.id}
-                    onClick={() => onSelectStudent(s.id)}
-                    className="hover:bg-[#FAF7F2] cursor-pointer transition-colors"
-                  >
-                    <td className="py-3.5 px-4 font-extrabold text-[#2D332A]">
-                      {s.name}
-                      <span className="block text-[10px] font-normal text-[#5C6B57]">{s.email}</span>
-                    </td>
-                    <td className="py-3.5 px-3 font-bold text-[#5C6B57]">{s.className}</td>
-                    <td className="py-3.5 px-3 font-semibold text-[#2D332A]">{s.loginCount}</td>
-                    <td className="py-3.5 px-3 text-[#5C6B57]">
-                      {new Date(s.lastLogin).toLocaleString('vi-VN')}
-                    </td>
-                    <td className="py-3.5 px-3 font-semibold text-[#2D332A]">{s.quizzesDone} bài</td>
-                    <td className="py-3.5 px-3 font-black text-[#4B5D44]">{s.avgScore}%</td>
-                    <td className="py-3.5 px-3 font-black text-[#384732]">{s.highestScore}%</td>
-                    <td className="py-3.5 px-3 font-bold text-[#8E5D32]">{s.xp}</td>
-                    <td className="py-3.5 px-3 font-black text-[#4B5D44]">{s.progress}%</td>
-                    <td className="py-3.5 px-3">
-                      <span
-                        className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
-                          s.statusBadge === 'Active'
-                            ? 'bg-[#E8EFE6] border-[#C6D8C2] text-[#384732]'
-                            : s.statusBadge === 'Needs Attention'
-                            ? 'bg-[#FAF2E4] border-[#F0DEBA] text-[#875514]'
-                            : 'bg-[#F9EBE9] border-[#ECC7C3] text-[#88372A]'
-                        }`}
-                      >
-                        {s.statusBadge === 'Active' ? 'Hoạt động' : s.statusBadge === 'Needs Attention' ? 'Cần nhắc nhở' : 'Điểm thấp'}
-                      </span>
-                    </td>
-                    <td className="py-3.5 px-3 text-right">
-                      <ChevronRight className="w-4 h-4 text-[#8C9886]" />
-                    </td>
-                  </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan={11} className="py-8 text-center text-xs text-[#5C6B57]">
-                    Không tìm thấy học sinh nào phù hợp với bộ lọc.
-                  </td>
-                </tr>
-              )}
+        <div className="flex items-center gap-2 bg-white border rounded-xl px-3 py-2"><Search className="w-4 h-4 text-gray-500"/><input className="w-full outline-none text-sm" value={search} onChange={e => setSearch(e.target.value)} placeholder="Tìm học sinh, mã số hoặc lớp…" /></div>
+        <div className="overflow-x-auto bg-white border rounded-xl">
+          <table className="w-full text-sm text-left">
+            <thead className="bg-[#FAF7F2] text-xs"><tr>
+              <th className="p-3">Mã</th><th className="p-3">Học sinh</th><th className="p-3">Lớp</th>
+              <th className="p-3">Từ vựng</th><th className="p-3">Ngữ pháp</th>
+              <th className="p-3">Thực hành / Nghe</th><th className="p-3">Bài đã nộp</th>
+              <th className="p-3">Chi tiết</th></tr></thead>
+            <tbody>
+              {filtered.map(student => <tr key={student.id} className="border-t">
+                <td className="p-3">{student.student_code ?? '—'}</td>
+                <td className="p-3 font-semibold">{student.full_name ?? 'Chưa có tên'}</td>
+                <td className="p-3">{student.classLabel}</td>
+                <td className="p-3">{renderSkillCell(student, 'vocabulary')}</td>
+                <td className="p-3">{renderSkillCell(student, 'grammar')}</td>
+                <td className="p-3">{renderSkillCell(student, 'practice')}</td>
+                <td className="p-3">{student.submissions.length}</td>
+                <td className="p-3"><button type="button" onClick={() => setSelectedId(String(student.id))}
+                  className="text-[#315d8e] font-semibold underline">Chi tiết</button></td>
+              </tr>)}
+              {filtered.length === 0 && <tr><td className="p-6 text-center" colSpan={8}>Không tìm thấy học sinh từ Supabase.</td></tr>}
             </tbody>
           </table>
         </div>
-      </div>
-    </div>
+        {selected && <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4" role="presentation" onMouseDown={(e) => { if (e.target === e.currentTarget) setSelectedId(null); }}>
+          <section role="dialog" aria-modal="true" aria-label={`Bài nộp của ${selected.full_name ?? 'học sinh'}`} className="bg-white border rounded-2xl shadow-2xl p-5 space-y-3 w-full max-w-4xl max-h-[85vh] overflow-auto">
+          <div className="flex justify-between gap-2 items-center"><h2 className="font-bold">Bài nộp: {selected.full_name} ({selected.student_code})</h2><button type="button" onClick={() => setSelectedId(null)} className="text-sm underline">Đóng</button></div>
+          {selected.submissions.length === 0 ? <p className="text-sm text-gray-500">Học sinh chưa có bài nộp trong Supabase.</p> : <div className="overflow-x-auto"><table className="w-full text-xs text-left"><thead><tr><th className="p-2">Ngày nộp</th><th className="p-2">Bài</th><th className="p-2">Unit</th><th className="p-2">Kết quả tự báo</th><th className="p-2">Xác minh</th></tr></thead><tbody>{selected.submissions.map((item, i) => <tr key={item.id ?? i} className="border-t"><td className="p-2">{formatDate(submissionDate(item))}</td><td className="p-2">{item.activity_id ?? item.activity_type ?? '—'}</td><td className="p-2">{item.unit_number ?? '—'}</td><td className="p-2">{scoreText(item)}</td><td className="p-2">{item.grading_status ?? 'Chưa xác minh'}</td></tr>)}</tbody></table></div>}
+          </section>
+        </div>}
+      </>}
+    </main>
   );
 };

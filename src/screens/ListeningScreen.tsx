@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { UserProfile, ListeningLesson, ListeningUnit, ListeningAssessmentResult, BlankCheckResult } from '../types';
 import { LISTENING_UNITS_DATA, getListeningByUnit } from '../data/listeningData';
 import { store } from '../services/store';
+import { progressService } from '../services/progressService';
 import { audioService } from '../services/audioService';
 import {
   Headphones,
@@ -177,6 +178,12 @@ export const ListeningScreen: React.FC<ListeningScreenProps> = ({
     };
 
     store.saveListeningResult(result);
+    void progressService.submitAttempt(user, {
+      id: `listen-${currentLesson.id}-${result.createdAt}`,
+      unit: selectedUnitNumber, module: 'listening', activityName: currentLesson.title || currentLesson.id,
+      score: correctCount, maxScore: currentLesson.blanks.length, percentage: score,
+      xpEarned: passed ? 20 : 5, attemptNumber: result.attempt,
+    });
     setSubmissionResult(result);
     setIsSubmitted(true);
 

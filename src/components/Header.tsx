@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { UserProfile, SyncStatus } from '../types';
 import { studentService } from '../services/studentService';
+import { progressService } from '../services/progressService';
 import { googleSheetsService } from '../services/googleSheetsService';
 import {
   Flame,
@@ -40,6 +41,15 @@ export const Header: React.FC<HeaderProps> = ({
   const [syncStatus, setSyncStatus] = useState<SyncStatus>('synced');
   const [isManualSyncing, setIsManualSyncing] = useState(false);
   const [syncToast, setSyncToast] = useState<string | null>(null);
+  const [submissionNotice, setSubmissionNotice] = useState<{status: string; message: string} | null>(null);
+  useEffect(() => {
+    const receive = (event: Event) => {
+      const detail = (event as CustomEvent<{status: string; message: string}>).detail;
+      if (detail?.message) setSubmissionNotice(detail);
+    };
+    window.addEventListener('english9:submission-status', receive);
+    return () => window.removeEventListener('english9:submission-status', receive);
+  }, []);
 
   useEffect(() => {
     const unsub = googleSheetsService.subscribeStatus((status) => {
@@ -52,11 +62,12 @@ export const Header: React.FC<HeaderProps> = ({
     setIsManualSyncing(true);
     try {
       if (user && user.role === 'student') {
-        await studentService.syncWithServer(user.id);
+        await progressService.resendLocalAttempts(user);
+        return;
       }
-      const count = await googleSheetsService.processQueue();
+      await googleSheetsService.processQueue();
       if (googleSheetsService.isConfigured()) {
-        setSyncToast('✓ Đã đồng bộ kết quả học tập.');
+        setSyncToast('✓ Đã xử lý hàng đợi Google Sheets.');
       } else {
         setSyncToast('☁️ Kết quả đã được lưu trên thiết bị. App sẽ đồng bộ lại khi có kết nối.');
       }
@@ -71,7 +82,7 @@ export const Header: React.FC<HeaderProps> = ({
   const displayName = user ? studentService.getStudentDisplayName(user.name) : '';
 
   return (
-    <header className="sticky top-0 z-40 bg-[#FFFFFF]/95 backdrop-blur-md border-b border-[#E8DFC8] px-4 py-3 sm:px-6">
+    <header className="sticky top-0 z-50 bg-[#FFFFFF]/95 backdrop-blur-md border-b border-[#E8DFC8] px-4 py-3 sm:px-6">
       <div className="max-w-6xl mx-auto flex items-center justify-between">
         {/* Brand / Logo */}
         <div className="flex items-center gap-3">
@@ -95,6 +106,10 @@ export const Header: React.FC<HeaderProps> = ({
 
         {/* Right Stats & User Menu */}
         <div className="flex items-center gap-2 sm:gap-3">
+          {submissionNotice && <div role="status" aria-live="polite" className={`fixed top-16 left-1/2 -translate-x-1/2 z-[90] max-w-[95vw] px-4 py-3 rounded-xl shadow-lg text-sm font-semibold ${submissionNotice.status === 'error' ? 'bg-red-100 text-red-900 border border-red-400' : submissionNotice.status === 'success' ? 'bg-green-100 text-green-900 border border-green-400' : 'bg-white text-[#2D332A] border'}`}>
+            <span>{submissionNotice.message}</span>
+            <button type="button" aria-label="Đóng thông báo" className="ml-4 underline" onClick={() => setSubmissionNotice(null)}>Đóng</button>
+          </div>}
           {/* Toast Notification */}
           {syncToast && (
             <div className="fixed top-16 right-4 z-50 bg-[#2D332A] text-white text-xs font-semibold px-3.5 py-2 rounded-xl shadow-lg animate-in fade-in slide-in-from-top-2 duration-150 flex items-center gap-2">
@@ -106,7 +121,7 @@ export const Header: React.FC<HeaderProps> = ({
           <div
             onClick={handleManualSync}
             className="cursor-pointer group flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold border transition-all select-none"
-            title="Nhấn để đồng bộ dữ liệu"
+            title="Nhấn để gửi lại các bài đã lưu trên thiết bị"
           >
             {syncStatus === 'synced' ? (
               <span className="flex items-center gap-1 text-[#4B5D44] bg-[#E8EFE6] border-[#C6D8C2] px-2 py-0.5 rounded-full">
@@ -151,6 +166,19 @@ export const Header: React.FC<HeaderProps> = ({
             </>
           )}
 
+          {/* Always-visible sign out: bypasses the account dropdown overlay. */}
+          {user && (
+            <button
+              type="button"
+              onClick={() => { void onLogout(); }}
+              aria-label="Đăng xuất và chọn tài khoản khác"
+              className="inline-flex items-center gap-1.5 rounded-xl border border-[#E5DDD0] bg-white px-3 py-2 text-xs font-bold text-[#A64B3B] hover:bg-[#F9EBE9] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#A64B3B]"
+            >
+              <LogOut className="w-4 h-4" />
+              <span>Đăng xuất</span>
+            </button>
+          )}
+
           {/* User Menu Button */}
           {user ? (
             <div className="relative">
@@ -178,10 +206,10 @@ export const Header: React.FC<HeaderProps> = ({
               {showDropdown && (
                 <>
                   <div
-                    className="fixed inset-0 z-40"
+                    className="fixed inset-0 z-[90]"
                     onClick={() => setShowDropdown(false)}
                   />
-                  <div className="absolute right-0 mt-2 w-64 bg-white rounded-2xl shadow-xl border border-[#E5DDD0] p-2 z-50 animate-in fade-in zoom-in-95 duration-100">
+                  <div className="absolute right-0 mt-2 w-64 bg-white rounded-2xl shadow-xl border border-[#E5DDD0] p-2 z-[100] animate-in fade-in zoom-in-95 duration-100">
                     {/* User Info Header: Full Name and Class (NO Phone Number) */}
                     <div className="px-3 py-2.5 border-b border-[#F0EAE1] mb-1.5">
                       <p className="text-[11px] text-[#7D8876] font-medium">Họ và tên</p>
@@ -243,7 +271,7 @@ export const Header: React.FC<HeaderProps> = ({
                       >
                         <div className="flex items-center gap-2.5">
                           <RotateCw className={`w-4 h-4 text-[#8E5D32] ${isManualSyncing ? 'animate-spin' : ''}`} />
-                          <span>Đồng bộ dữ liệu</span>
+                          <span>Gửi lại bài đã làm</span>
                         </div>
                         <span className="text-[10px] text-[#7D8876]">
                           {syncStatus === 'synced' ? 'Đã đồng bộ' : 'Chưa đồng bộ'}
@@ -296,7 +324,10 @@ export const Header: React.FC<HeaderProps> = ({
                     <div className="border-t border-[#F0EAE1] mt-2 pt-1">
                       <button
                         type="button"
-                        onClick={() => {
+                        aria-label="Đăng xuất tài khoản"
+                        onClick={(event) => {
+                          event.preventDefault();
+                          event.stopPropagation();
                           setShowDropdown(false);
                           onLogout();
                         }}

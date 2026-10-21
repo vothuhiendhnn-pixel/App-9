@@ -10,6 +10,8 @@ import { googleSheetsService } from './googleSheetsService';
 import { store } from './store';
 
 const STUDENT_STORAGE_KEY = 'english9_student';
+// Password is held in memory only while this page is open. Never persist it.
+let activeSubmissionCredential: { code: string; password: string; studentId: string } | null = null;
 
 export interface LoginFormErrors {
   name?: string;
@@ -201,6 +203,7 @@ class StudentService {
       }
 
       store.setCurrentUser(student);
+      activeSubmissionCredential = { code, password: pass, studentId: String(student.id) };
       this.saveCurrentStudent(student);
 
       return {
@@ -222,7 +225,13 @@ class StudentService {
   /**
    * Logs out the current student
    */
+  public getSubmissionCredential(studentId: string): { code: string; password: string } | null {
+    if (!activeSubmissionCredential || activeSubmissionCredential.studentId !== String(studentId)) return null;
+    return { code: activeSubmissionCredential.code, password: activeSubmissionCredential.password };
+  }
+
   public logout(): void {
+    activeSubmissionCredential = null;
     try {
       localStorage.removeItem(STUDENT_STORAGE_KEY);
       store.logout();

@@ -1,207 +1,220 @@
 import React, { useState } from 'react';
-import { UserProfile } from '../types';
-import { studentService, LoginFormErrors } from '../services/studentService';
-import { googleSheetsService } from '../services/googleSheetsService';
-import { X, User, Phone, Sparkles, Loader2, ShieldAlert } from 'lucide-react';
+import { supabase } from '../lib/supabaseClient';
+import { studentService } from '../services/studentService';
+import type { UserProfile } from '../types';
 
 interface LoginModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onLoginSuccess: (student: UserProfile) => void;
+  onLoginSuccess: (user: UserProfile) => void;
+  initialTab?: LoginTab;
 }
 
+type LoginTab = 'student' | 'teacher';
+
+/**
+ * English 9 – Miss Hiền: real authentication only.
+ * Student: existing Supabase RPC via studentService.login().
+ * Teacher: Supabase Auth plus explicit teacher authorization.
+ * Never grant teacher privileges solely because an Auth session exists.
+ */
 export const LoginModal: React.FC<LoginModalProps> = ({
   isOpen,
   onClose,
   onLoginSuccess,
+  initialTab = 'student',
 }) => {
-  const [name, setName] = useState('');
-  const [phone, setPhone] = useState('');
-  const [className, setClassName] = useState('9A');
-  const [errors, setErrors] = useState<LoginFormErrors>({});
-  const [isLoading, setIsLoading] = useState(false);
-  const [serverError, setServerError] = useState<string | null>(null);
+  const [tab, setTab] = useState<LoginTab>(initialTab);
+  const [studentCode, setStudentCode] = useState('');
+  const [studentPassword, setStudentPassword] = useState('');
+  const [teacherEmail, setTeacherEmail] = useState('');
+  const [teacherPassword, setTeacherPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
   if (!isOpen) return null;
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setServerError(null);
-
-    // Validation
-    const validation = studentService.validateLoginForm(name, phone);
-    if (!validation.isValid) {
-      setErrors(validation.errors);
+  const handleStudentLogin = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (loading) return;
+    setError('');
+    if (!studentCode.trim() || !studentPassword) {
+      setError('Vui lòng nhập mã học sinh và mật khẩu được cấp.');
       return;
     }
-    setErrors({});
-    setIsLoading(true);
 
+    setLoading(true);
     try {
-      const result = await studentService.login(name, phone, className);
-      if (result.success && result.student) {
-        onLoginSuccess(result.student);
-        onClose();
-      } else {
-        setServerError(result.error || 'Có lỗi xảy ra khi đăng nhập. Vui lòng thử lại.');
+      const result = await studentService.login(studentCode.trim(), studentPassword);
+      if (!result.success || !result.student) {
+        setError(result.error || 'Đăng nhập học sinh không thành công.');
+        return;
       }
-    } catch {
-      setServerError('Không thể kết nối. Vui lòng kiểm tra lại đường truyền mạng.');
+      // The service returns the real student ID, name, and class from Supabase.
+      onLoginSuccess(result.student);
+      onClose();
+    } catch (cause) {
+      console.error('Student login failed:', cause);
+      setError('Không thể đăng nhập. Vui lòng thử lại.');
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   };
 
+  const handleTeacherLogin = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (loading) return;
+    setError('');
+    const email = teacherEmail.trim().toLowerCase();
+    if (!email || !teacherPassword) {
+      setError('Vui lòng nhập email và mật khẩu giáo viên.');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const { data, error: authError } = await supabase.auth.signInWithPassword({
+        email,
+        password: teacherPassword,
+      });
+      if (authError) throw authError;
+      const authUser = data.user;
+      if (!authUser) throw new Error('Missing Supabase Auth user');
+
+      // Check a server-managed role. A mere successful login is NOT teacher authorization.
+      const appRole = authUser.app_metadata?.role;
+      let teacherAuthorized = appRole === 'teacher';
+      if (!teacherAuthorized) {
+        // This query requires the `profiles` table to contain `id` and `role`,
+        // and an RLS SELECT policy allowing the authenticated user to read their role.
+        const { data: profile, error: profileError } = await supabase
+          .from('profiles')
+          .select('role')
+          .eq('id', authUser.id)
+          .maybeSingle();
+        if (profileError) {
+          console.error('Teacher role lookup failed:', {
+            code: profileError.code,
+            message: profileError.message,
+          });
+        }
+        teacherAuthorized = !profileError && profile?.role === 'teacher';
+      }
+
+      if (!teacherAuthorized) {
+        await supabase.auth.signOut();
+        setError('Tài khoản đã xác thực nhưng chưa được cấp quyền giáo viên.');
+        return;
+      }
+
+      const now = new Date().toISOString();
+      // UserProfile compatibility with the existing App.tsx. These learner-only
+      // fields are neutral for a teacher and are NOT student scores.
+      const teacher: UserProfile = {
+        id: authUser.id,
+        role: 'teacher',
+        name: typeof authUser.user_metadata?.full_name === 'string'
+          ? authUser.user_metadata.full_name
+          : 'Giáo viên',
+        phone: '',
+        className: '',
+        xp: 0,
+        streak: 0,
+        createdAt: authUser.created_at || now,
+        lastLoginAt: now,
+        overallProgress: 0,
+        vocabularyScore: 0,
+        grammarScore: 0,
+        pronunciationScore: 0,
+        listeningScore: 0,
+        vocabularyProgress: 0,
+        grammarProgress: 0,
+        pronunciationProgress: 0,
+        listeningProgress: 0,
+        lastActivity: 'Đăng nhập giáo viên',
+        syncStatus: 'synced',
+      };
+      onLoginSuccess(teacher);
+      onClose();
+    } catch (cause: unknown) {
+      const detail = cause as { message?: string; code?: string; status?: number };
+      console.error('Teacher Supabase Auth error:', {
+        message: detail?.message,
+        code: detail?.code,
+        status: detail?.status,
+      });
+      if (detail?.message === 'Invalid login credentials') {
+        setError('Email hoặc mật khẩu chưa khớp với Supabase Auth.');
+      } else if (detail?.message === 'Email not confirmed') {
+        setError('Email giáo viên chưa được xác nhận trong Supabase Auth.');
+      } else {
+        setError('Đăng nhập chưa thành công. Hãy xem mã lỗi trong Console để kiểm tra.');
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const inputClass = 'w-full px-4 py-3.5 rounded-xl border border-gray-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[#5A7258]';
+  const labelClass = 'block text-xs font-bold text-[#2D332A] uppercase tracking-wider mb-2';
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-in fade-in duration-200">
-      <div className="relative w-full max-w-md bg-[#FFFDF9] rounded-3xl border border-[#E8DFC8] shadow-2xl overflow-hidden p-6 sm:p-8">
-        {/* Close Button */}
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+      <div className="bg-white rounded-3xl shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto relative">
         <button
           type="button"
           onClick={onClose}
-          className="absolute top-4 right-4 p-2 text-[#7D8876] hover:text-[#2D332A] hover:bg-[#F0EAE1] rounded-full transition-colors"
-          aria-label="Đóng"
+          disabled={loading}
+          aria-label="Đóng cửa sổ đăng nhập"
+          className="absolute right-4 top-3 text-gray-500 hover:text-gray-800 disabled:opacity-50 text-2xl"
         >
-          <X className="w-5 h-5" />
+          ×
         </button>
-
-        {/* Header */}
-        <div className="text-center mb-6">
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-[#E8EFE6] border border-[#C6D8C2] text-[#4B5D44] mb-3 shadow-xs">
-            <span className="text-2xl">👋</span>
+        <div className="p-7">
+          <div className="mx-auto mb-4 w-16 h-16 bg-[#5A7258] rounded-2xl flex items-center justify-center text-white font-serif text-2xl">E9</div>
+          <h2 className="text-2xl font-bold text-center text-[#2D332A] mb-6 font-serif">English 9 - Miss Hiền</h2>
+          <div className="mb-6 text-center">
+            <span className={`inline-flex rounded-full px-5 py-2 font-bold text-sm ${tab === 'student' ? 'bg-[#E8F1E7] text-[#456743]' : 'bg-[#F7EEE5] text-[#8B5A2B]'}`}>
+              {tab === 'student' ? 'Đăng nhập học sinh' : 'Đăng nhập giáo viên'}
+            </span>
           </div>
-          <h2 className="text-2xl font-black text-[#2D332A] tracking-tight font-serif">
-            CHÀO EM!
-          </h2>
-          <p className="text-sm text-[#5C6B57] font-medium mt-1">
-            Đăng nhập để lưu tiến độ học tập.
-          </p>
-        </div>
 
-        {/* Server Alert if any */}
-        {serverError && (
-          <div className="mb-5 p-3.5 bg-[#FDF2F0] border border-[#F5C7C0] rounded-2xl flex items-start gap-2.5 text-xs text-[#A64B3B] font-medium">
-            <ShieldAlert className="w-4 h-4 text-[#A64B3B] shrink-0 mt-0.5" />
-            <span>{serverError}</span>
-          </div>
-        )}
+          {error && <div role="alert" className="mb-5 p-3 rounded-xl bg-red-50 text-red-700 border border-red-100 text-sm">{error}</div>}
 
-        {/* Form */}
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Họ và tên */}
-          <div>
-            <label className="block text-xs font-bold text-[#2D332A] uppercase tracking-wider mb-1.5">
-              Họ và tên <span className="text-red-500">*</span>
-            </label>
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-[#7D8876]">
-                <User className="w-4 h-4" />
+          {tab === 'student' ? (
+            <form onSubmit={handleStudentLogin} className="space-y-5">
+              <div>
+                <label htmlFor="student-code" className={labelClass}>Mã học sinh</label>
+                <input id="student-code" className={inputClass} value={studentCode} onChange={e => setStudentCode(e.target.value)}
+                  autoComplete="username" placeholder="Ví dụ: HS9A1-10" required />
               </div>
-              <input
-                type="text"
-                value={name}
-                onChange={(e) => {
-                  setName(e.target.value);
-                  if (errors.name) setErrors({ ...errors, name: undefined });
-                }}
-                placeholder="Ví dụ: Nguyễn Minh Anh"
-                className={`w-full pl-10 pr-4 py-3 bg-white border ${
-                  errors.name ? 'border-red-400 focus:ring-red-200' : 'border-[#DDD4C3] focus:border-[#4B5D44] focus:ring-[#4B5D44]/20'
-                } rounded-2xl text-sm font-medium text-[#2D332A] placeholder-[#9E9B93] focus:outline-hidden focus:ring-3 transition-all`}
-                autoFocus
-                disabled={isLoading}
-              />
-            </div>
-            {errors.name && (
-              <p className="text-xs text-red-500 font-semibold mt-1 pl-1">
-                {errors.name}
-              </p>
-            )}
-          </div>
-
-          {/* Số điện thoại */}
-          <div>
-            <label className="block text-xs font-bold text-[#2D332A] uppercase tracking-wider mb-1.5">
-              Số điện thoại <span className="text-red-500">*</span>
-            </label>
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-[#7D8876]">
-                <Phone className="w-4 h-4" />
+              <div>
+                <label htmlFor="student-password" className={labelClass}>Mật khẩu</label>
+                <input id="student-password" type="password" className={inputClass} value={studentPassword}
+                  onChange={e => setStudentPassword(e.target.value)} autoComplete="current-password" required />
               </div>
-              <input
-                type="tel"
-                inputMode="numeric"
-                value={phone}
-                onChange={(e) => {
-                  setPhone(e.target.value);
-                  if (errors.phone) setErrors({ ...errors, phone: undefined });
-                }}
-                placeholder="Ví dụ: 0912345678"
-                className={`w-full pl-10 pr-4 py-3 bg-white border ${
-                  errors.phone ? 'border-red-400 focus:ring-red-200' : 'border-[#DDD4C3] focus:border-[#4B5D44] focus:ring-[#4B5D44]/20'
-                } rounded-2xl text-sm font-medium text-[#2D332A] placeholder-[#9E9B93] focus:outline-hidden focus:ring-3 transition-all`}
-                disabled={isLoading}
-              />
-            </div>
-            {errors.phone && (
-              <p className="text-xs text-red-500 font-semibold mt-1 pl-1">
-                {errors.phone}
-              </p>
-            )}
-            <p className="text-[11px] text-[#7D8876] mt-1 pl-1">
-              Số điện thoại dùng để nhận diện và khôi phục điểm của em (không hiển thị công khai).
-            </p>
-          </div>
-
-          {/* Lớp */}
-          <div>
-            <label className="block text-xs font-bold text-[#2D332A] uppercase tracking-wider mb-1.5">
-              Lớp học
-            </label>
-            <div className="grid grid-cols-4 gap-2">
-              {['9A', '9B', '9C', '9D'].map((c) => (
-                <button
-                  type="button"
-                  key={c}
-                  onClick={() => setClassName(c)}
-                  className={`py-2 text-xs font-bold rounded-xl border transition-all ${
-                    className === c
-                      ? 'bg-[#4B5D44] text-white border-[#4B5D44] shadow-xs'
-                      : 'bg-white text-[#5C6B57] border-[#DDD4C3] hover:bg-[#F7F3E9]'
-                  }`}
-                >
-                  {c}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Submit Button */}
-          <button
-            type="submit"
-            id="btn-start-learning"
-            disabled={isLoading}
-            className="w-full mt-2 py-3.5 bg-[#4B5D44] hover:bg-[#3D4C37] text-white font-extrabold rounded-2xl shadow-md transition-all active:scale-[0.99] flex items-center justify-center gap-2 text-sm uppercase tracking-wider disabled:opacity-70 cursor-pointer"
-          >
-            {isLoading ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin" />
-                <span>Đang kiểm tra dữ liệu...</span>
-              </>
-            ) : (
-              <>
-                <Sparkles className="w-4 h-4" />
-                <span>BẮT ĐẦU HỌC</span>
-              </>
-            )}
-          </button>
-        </form>
-
-        {/* Sync Guarantee footer */}
-        <div className="mt-5 pt-4 border-t border-[#F0EAE1] text-center">
-          <p className="text-[11px] text-[#7D8876]">
-            🔒 Không cần email • Không cần mật khẩu • Dữ liệu đồng bộ an toàn
-          </p>
+              <p className="text-xs text-[#5A7258]">Họ tên và lớp được lấy từ Supabase sau khi đăng nhập.</p>
+              <button disabled={loading} type="submit" className="w-full py-4 rounded-xl bg-[#5A7258] text-white font-bold disabled:opacity-50">
+                {loading ? 'Đang xác thực...' : 'ĐĂNG NHẬP HỌC SINH'}
+              </button>
+            </form>
+          ) : (
+            <form onSubmit={handleTeacherLogin} className="space-y-5">
+              <div>
+                <label htmlFor="teacher-email" className={labelClass}>Email giáo viên</label>
+                <input id="teacher-email" type="email" className={inputClass} value={teacherEmail}
+                  onChange={e => setTeacherEmail(e.target.value)} autoComplete="username" required />
+              </div>
+              <div>
+                <label htmlFor="teacher-password" className={labelClass}>Mật khẩu</label>
+                <input id="teacher-password" type="password" className={inputClass} value={teacherPassword}
+                  onChange={e => setTeacherPassword(e.target.value)} autoComplete="current-password" required />
+              </div>
+              <button disabled={loading} type="submit" className="w-full py-4 rounded-xl bg-[#8B5A2B] text-white font-bold disabled:opacity-50">
+                {loading ? 'Đang xác thực...' : 'ĐĂNG NHẬP GIÁO VIÊN'}
+              </button>
+            </form>
+          )}
         </div>
       </div>
     </div>

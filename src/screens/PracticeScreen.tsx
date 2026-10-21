@@ -3,6 +3,7 @@ import { UserProfile } from '../types';
 import { UNIT_1_LISTENING } from '../data/unitsData';
 import { audioService } from '../services/audioService';
 import { store } from '../services/store';
+import { progressService } from '../services/progressService';
 import {
   ArrowLeft,
   Headphones,
@@ -94,7 +95,7 @@ export const PracticeScreen: React.FC<PracticeScreenProps> = ({
       setIsCompleted(true);
       store.addXP(user.id, 15);
       confetti({ particleCount: 40, spread: 60, origin: { y: 0.6 } });
-      store.recordQuizAttempt({
+      const savedAttempt = store.recordQuizAttempt({
         studentId: user.id,
         unit: 1,
         module: 'practice',
@@ -105,6 +106,7 @@ export const PracticeScreen: React.FC<PracticeScreenProps> = ({
         percentage: 100,
         xpEarned: 20,
       });
+      void progressService.submitAttempt(user, savedAttempt);
       store.updateModuleProgress(user.id, 1, 'practice', 90);
       onUpdateProgress();
     } else {
@@ -116,7 +118,7 @@ export const PracticeScreen: React.FC<PracticeScreenProps> = ({
         setFeedbackState('submitted');
         setIsCompleted(true);
         const percentage = Math.round((correctCount / UNIT_1_LISTENING.blanks.length) * 100);
-        store.recordQuizAttempt({
+        const savedAttempt = store.recordQuizAttempt({
           studentId: user.id,
           unit: 1,
           module: 'practice',
@@ -127,6 +129,7 @@ export const PracticeScreen: React.FC<PracticeScreenProps> = ({
           percentage,
           xpEarned: 10,
         });
+      void progressService.submitAttempt(user, savedAttempt);
 
         // Record any wrong blanks into mistakes
         UNIT_1_LISTENING.blanks.forEach((b) => {
