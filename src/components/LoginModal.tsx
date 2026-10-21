@@ -26,6 +26,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
 }) => {
   const [tab, setTab] = useState<LoginTab>(initialTab);
   const [studentCode, setStudentCode] = useState('');
+  const [studentCodeFocused, setStudentCodeFocused] = useState(false);
   const [studentPassword, setStudentPassword] = useState('');
   const [teacherEmail, setTeacherEmail] = useState('');
   const [teacherPassword, setTeacherPassword] = useState('');
@@ -185,8 +186,21 @@ export const LoginModal: React.FC<LoginModalProps> = ({
             <form onSubmit={handleStudentLogin} className="space-y-5">
               <div>
                 <label htmlFor="student-code" className={labelClass}>Mã học sinh</label>
-                <input id="student-code" className={inputClass} value={studentCode} onChange={e => setStudentCode(e.target.value)}
-                  autoComplete="off" placeholder="Ví dụ: HS9A1-10" required />
+                <input
+                  id="student-code"
+                  name="english9-student-identifier"
+                  type="text"
+                  className={inputClass}
+                  value={studentCode}
+                  onChange={e => setStudentCode(e.target.value)}
+                  autoComplete="off"
+                  readOnly={!studentCodeFocused}
+                  onFocus={() => setStudentCodeFocused(true)}
+                  onBlur={() => setStudentCodeFocused(false)}
+                  placeholder="Ví dụ: HS9A1-10"
+                  spellCheck={false}
+                  required
+                />
               </div>
               <div>
                 <label htmlFor="student-password" className={labelClass}>Mật khẩu</label>
