@@ -76,7 +76,61 @@ export const VocabularyScreen: React.FC<VocabularyScreenProps> = ({
     store.getVocabularyUnitPracticeProgress(user.id, initialUnitId || 1)
   );
 
+  const [cloudStages, setCloudStages] = useState<Record<string, number>>({});
+  const [cloudNotice, setCloudNotice] = useState<string | null>(null);
   const effectiveUnit = selectedUnit === 0 ? 1 : selectedUnit;
+
+  // Existing scores remain visible locally. A successful authenticated cloud read
+  // restores stages across browsers; no demo scores are manufactured.
+  useEffect(() => {
+    let cancelled = false;
+    setCloudStages({});
+    setCloudNotice(null);
+    const map: Record<string, VocabPracticeType> = {
+      'Nối từ với nghĩa': 'match',
+      'Chọn nghĩa đúng': 'choose_meaning',
+      'Nghe và chọn từ': 'listen_and_choose',
+      'Viết từ': 'type_word',
+      'Điền từ vào câu': 'complete_sentence',
+      'Vocabulary Challenge': 'challenge',
+    };
+    void progressService.getVocabularyCloudStages(user, effectiveUnit)
+      .then(rows => {
+        if (cancelled) return;
+        const results: Record<string, number> = {};
+        for (const row of rows) {
+          const key = map[row.exercise];
+          if (key) results[key] = Math.max(results[key] ?? 0, row.score);
+        }
+        setCloudStages(results);
+      })
+      .catch(() => {
+        if (!cancelled) setCloudNotice('Cloud progress is unavailable. Local progress is shown.');
+      });
+    return () => { cancelled = true; };
+  }, [effectiveUnit, user.id]);
+
+  const displayedPracticeProgress = useMemo(() => {
+    const p = unitPracticeProgress;
+    const order: VocabPracticeType[] = ['match', 'choose_meaning', 'listen_and_choose', 'type_word', 'complete_sentence', 'challenge'];
+    const bestScores = { ...p.bestScores };
+    const latestScores = { ...p.latestScores };
+    const attempts = { ...p.attempts };
+    for (const type of order) {
+      if (cloudStages[type] !== undefined) {
+        bestScores[type] = Math.max(bestScores[type] ?? 0, cloudStages[type]);
+        if (!attempts[type]) latestScores[type] = cloudStages[type];
+        attempts[type] = Math.max(attempts[type] ?? 0, 1);
+      }
+    }
+    const unlocked = { ...p.unlocked, match: true };
+    order.forEach((type, i) => {
+      if (bestScores[type] >= 80 && i < order.length - 1) unlocked[order[i + 1]] = true;
+    });
+    const completed = order.every(type => bestScores[type] >= 80);
+    unlocked.unit_completed = completed;
+    return { ...p, bestScores, latestScores, attempts, unlocked, completed };
+  }, [unitPracticeProgress, cloudStages]);
 
   // Refresh progress helper
   const refreshPracticeProgress = () => {
@@ -432,11 +486,14 @@ export const VocabularyScreen: React.FC<VocabularyScreenProps> = ({
             </div>
           )}
 
+          {activePractice === null && cloudNotice && (
+            <p role="status" className="rounded-xl border border-[#D4B98D] bg-[#FFF6E7] px-4 py-3 text-sm text-[#875514]">{cloudNotice}</p>
+          )}
           {activePractice === null && (
             <VocabularyPracticeRoadmap
               unit={effectiveUnit}
               user={user}
-              progress={unitPracticeProgress}
+              progress={displayedPracticeProgress}
               onSelectPractice={(type) => setActivePractice(type)}
             />
           )}

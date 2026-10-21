@@ -1,226 +1,78 @@
 import React from 'react';
-import {
-  Lock,
-  Unlock,
-  CheckCircle2,
-  Trophy,
-  ArrowRight,
-  RotateCcw,
-  Sparkles,
-  AlertCircle,
-  Play,
-  Volume2,
-  BookOpen,
-  Layers,
-} from 'lucide-react';
-import { UserProfile, VocabPracticeType, VocabularyUnitPracticeProgress } from '../../types';
-import { VOCAB_PRACTICE_CONFIGS } from '../../data/vocabularyPracticeData';
+import { CheckCircle2, Lock, Play, RotateCcw, Trophy } from 'lucide-react';
+import type { UserProfile, VocabPracticeType, VocabularyUnitPracticeProgress } from '../../types';
 import { store } from '../../services/store';
 
-interface VocabularyPracticeRoadmapProps {
+interface Props {
   unit: number;
   user: UserProfile;
   progress: VocabularyUnitPracticeProgress;
   onSelectPractice: (type: VocabPracticeType | 'review_wrong_words') => void;
 }
 
-export const VocabularyPracticeRoadmap: React.FC<VocabularyPracticeRoadmapProps> = ({
-  unit,
-  user,
-  progress,
-  onSelectPractice,
-}) => {
-  const practiceOrder: VocabPracticeType[] = [
-    'match',
-    'choose_meaning',
-    'listen_and_choose',
-    'type_word',
-    'complete_sentence',
-    'challenge',
-  ];
+const stages: { type: VocabPracticeType; title: string; description: string; icon: string }[] = [
+  { type: 'match', title: 'Match Words', description: 'Match each English word with its meaning.', icon: '🧩' },
+  { type: 'choose_meaning', title: 'Choose the Meaning', description: 'Choose the correct meaning of each word.', icon: '✅' },
+  { type: 'listen_and_choose', title: 'Listen & Choose', description: 'Listen carefully and select the right word.', icon: '🎧' },
+  { type: 'type_word', title: 'Type the Word', description: 'Write the English word for each meaning.', icon: '✍️' },
+  { type: 'complete_sentence', title: 'Complete Sentences', description: 'Use the correct words in context.', icon: '📝' },
+  { type: 'challenge', title: 'Vocabulary Challenge', description: 'Finish the final challenge to complete this unit.', icon: '🏆' },
+];
 
-  const reviewWords = store.getWordsNeedingReview(user.id, unit, 50);
-  const masteryStats = store.getVocabPracticeSummary(user.id);
-  const unitMasteryList = store.getWordMasteryList(user.id, unit);
-  const unitMasteredCount = unitMasteryList.filter((w) => w.mastered).length;
-
+export const VocabularyPracticeRoadmap: React.FC<Props> = ({ unit, user, progress, onSelectPractice }) => {
+  const completedCount = stages.filter(s => (progress.bestScores[s.type] ?? 0) >= 80).length;
+  const needsReview = store.getWordsNeedingReview(user.id, unit, 50).length;
   return (
-    <div className="space-y-6 animate-fadeIn">
-      {/* Unit Practice Hero & Mastery Banner */}
-      <div className="bg-white rounded-3xl p-6 sm:p-7 border border-[#E5DDD0] shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-6">
-        <div className="space-y-2">
-          <div className="inline-flex items-center gap-2">
-            <span className="text-xs font-black uppercase tracking-wider text-[#4B5D44] bg-[#E8EFE6] px-3 py-1 rounded-full border border-[#C6D8C2]">
-              Lộ trình 6 chặng luyện tập • Unit {unit}
-            </span>
-            {progress.completed && (
-              <span className="text-xs font-black text-[#8E5D32] bg-[#FAF7F2] px-3 py-1 rounded-full border border-[#E5DDD0] flex items-center gap-1">
-                <Trophy className="w-3.5 h-3.5 text-[#BC8A5F]" />
-                <span>Đã hoàn thành Unit</span>
-              </span>
-            )}
+    <section className="space-y-6" aria-label={`Vocabulary Unit ${unit} stages`}>
+      <div className="rounded-[28px] bg-gradient-to-br from-[#103D2B] via-[#155239] to-[#236449] text-white shadow-xl p-6 sm:p-8">
+        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+          <div>
+            <p className="text-sm font-bold tracking-widest uppercase text-[#E8D7AF]">Unit {unit} · Vocabulary Journey</p>
+            <h2 className="mt-2 font-serif font-black text-3xl sm:text-4xl">Learn, Practise & Achieve</h2>
+            <p className="mt-3 text-base text-[#E6F5EC]">Pass each stage with at least 80% to unlock the next one.</p>
           </div>
-          <h2 className="text-2xl sm:text-3xl font-black text-[#2D332A] font-serif">
-            Luyện tập từ vựng từng bước
-          </h2>
-          <p className="text-xs sm:text-sm text-[#5C6B57] max-w-xl font-medium">
-            Em cần đạt ít nhất <strong className="text-[#2D332A]">80 điểm (80%)</strong> ở mỗi chặng để mở khóa bài tập tiếp theo. Chinh phục chặng Challenge cuối cùng để hoàn tất Unit!
-          </p>
-        </div>
-
-        {/* Word Mastery Mini Dashboard */}
-        <div className="bg-[#FAF7F2] p-4 sm:p-5 rounded-2xl border border-[#E5DDD0] flex items-center justify-around gap-4 shrink-0">
-          <div className="text-center">
-            <p className="text-[10px] uppercase tracking-wider text-[#5C6B57] font-extrabold">Đã thuộc</p>
-            <p className="text-2xl font-black text-[#4B5D44] font-serif">{unitMasteredCount}</p>
-            <span className="text-[10px] text-[#8C9886]">từ (streak ≥ 3)</span>
-          </div>
-          <div className="h-8 w-px bg-[#E5DDD0]" />
-          <div className="text-center">
-            <p className="text-[10px] uppercase tracking-wider text-[#5C6B57] font-extrabold">Cần ôn lại</p>
-            <p className="text-2xl font-black text-[#88372A] font-serif">{reviewWords.length}</p>
-            <span className="text-[10px] text-[#8C9886]">từ hay sai</span>
+          <div className="rounded-2xl bg-white/15 border border-white/30 px-6 py-4 text-center min-w-36">
+            <p className="text-sm font-bold text-[#E5F2E9]">Stages Completed</p>
+            <p className="font-black text-4xl mt-1">{completedCount}/6</p>
           </div>
         </div>
+        <div className="mt-6 h-3 bg-white/20 rounded-full overflow-hidden" role="progressbar" aria-valuenow={completedCount} aria-valuemin={0} aria-valuemax={6} aria-label="Stages completed">
+          <div className="h-full rounded-full bg-[#F2C16D] transition-all" style={{ width: `${completedCount / 6 * 100}%` }} />
+        </div>
+        {completedCount === 6 && <div className="mt-4 inline-flex gap-2 items-center text-lg font-black text-[#FFDB8C]"><Trophy size={24} /> Vocabulary Completed!</div>}
       </div>
 
-      {/* Review Wrong Words Callout Banner if any */}
-      {reviewWords.length > 0 && (
-        <div className="bg-[#FAF7F2] border border-[#E5DDD0] rounded-3xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-xs">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-2xl bg-[#F9EBE9] border border-[#E8C2BD] flex items-center justify-center text-xl shrink-0">
-              🔄
-            </div>
-            <div>
-              <h3 className="font-extrabold text-sm sm:text-base text-[#2D332A] font-serif">
-                Em có {reviewWords.length} từ cần ôn tập lại
-              </h3>
-              <p className="text-xs text-[#5C6B57]">
-                Luyện tập tập trung các từ em vừa làm sai cho đến khi thuộc lòng.
-              </p>
-            </div>
-          </div>
-          <button
-            onClick={() => onSelectPractice('review_wrong_words')}
-            className="bg-[#8E5D32] hover:bg-[#784D28] text-white px-5 py-2.5 rounded-xl font-extrabold text-xs shadow-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer shrink-0"
-          >
-            <span>ÔN TỪ HAY SAI NGAY</span>
-            <ArrowRight className="w-3.5 h-3.5" />
-          </button>
-        </div>
-      )}
-
-      {/* 6 Exercise Cards Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5">
-        {practiceOrder.map((type, index) => {
-          const config = VOCAB_PRACTICE_CONFIGS[type];
-          const isUnlocked = progress.unlocked[type] ?? (index === 0);
-          const bestScore = progress.bestScores[type] || 0;
-          const latestScore = progress.latestScores[type] || 0;
-          const attempts = progress.attempts[type] || 0;
-          const isPassed = bestScore >= 80;
-
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+        {stages.map((stage, index) => {
+          const passed = (progress.bestScores[stage.type] ?? 0) >= 80;
+          const unlocked = progress.unlocked[stage.type] ?? index === 0;
+          const attempts = progress.attempts[stage.type] ?? 0;
           return (
-            <div
-              key={type}
-              className={`rounded-3xl border p-5 sm:p-6 transition-all relative flex flex-col justify-between gap-4 ${
-                !isUnlocked
-                  ? 'bg-[#FAF7F2]/60 border-[#E5DDD0] opacity-65'
-                  : isPassed
-                  ? 'bg-white border-[#C6D8C2] hover:border-[#4B5D44] shadow-xs hover:shadow-md'
-                  : 'bg-white border-[#E5DDD0] hover:border-[#BC8A5F] shadow-xs hover:shadow-md'
-              }`}
-            >
-              {/* Top Row: Icon & Status Badge */}
+            <article key={stage.type} className={`rounded-[26px] border-2 p-5 sm:p-6 shadow-sm transition-all ${passed ? 'bg-[#EFF9F1] border-[#6CB58A]' : unlocked ? 'bg-white border-[#DFD4C4] hover:border-[#BA803B] hover:shadow-lg' : 'bg-[#F3EFE8] border-[#E3DBCF]'}`}>
               <div className="flex items-start justify-between gap-3">
-                <div className="flex items-center gap-3">
-                  <div
-                    className={`w-12 h-12 rounded-2xl flex items-center justify-center text-2xl border ${
-                      !isUnlocked
-                        ? 'bg-[#E5DDD0]/50 border-[#D5CDC0]'
-                        : isPassed
-                        ? 'bg-[#E8EFE6] border-[#C6D8C2]'
-                        : 'bg-[#FAF7F2] border-[#E5DDD0]'
-                    }`}
-                  >
-                    {config.icon}
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-[10px] font-black uppercase tracking-wider text-[#8E5D32] bg-[#FAF7F2] px-2 py-0.5 rounded-md border border-[#E5DDD0]">
-                        Chặng {index + 1}/6
-                      </span>
-                      <span className="text-xs text-[#8C9886] font-bold">{config.badge}</span>
-                    </div>
-                    <h3 className="font-extrabold text-base sm:text-lg text-[#2D332A] font-serif mt-0.5">
-                      {config.name}
-                    </h3>
-                  </div>
-                </div>
-
-                {/* Status Indicator */}
-                <div>
-                  {!isUnlocked ? (
-                    <div className="w-8 h-8 rounded-full bg-[#E5DDD0] text-[#8C9886] flex items-center justify-center" title="Cần hoàn thành bài trước với điểm ≥ 80%">
-                      <Lock className="w-4 h-4" />
-                    </div>
-                  ) : isPassed ? (
-                    <div className="w-8 h-8 rounded-full bg-[#E8EFE6] text-[#4B5D44] flex items-center justify-center" title="Đã vượt qua">
-                      <CheckCircle2 className="w-5 h-5" />
-                    </div>
-                  ) : (
-                    <div className="w-8 h-8 rounded-full bg-[#FAF7F2] border border-[#E5DDD0] text-[#BC8A5F] flex items-center justify-center" title="Đang mở khóa">
-                      <Unlock className="w-4 h-4" />
-                    </div>
-                  )}
-                </div>
+                <span className="w-14 h-14 flex items-center justify-center text-3xl rounded-2xl bg-[#F5E9DA]" aria-hidden="true">{stage.icon}</span>
+                <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-extrabold ${passed ? 'bg-[#D5F1DE] text-[#11633C]' : unlocked ? 'bg-[#FFF0D5] text-[#8C4B11]' : 'bg-[#E5E1D9] text-[#6D706B]'}`}>
+                  {passed ? <CheckCircle2 size={17}/> : !unlocked ? <Lock size={16}/> : null}
+                  {passed ? 'Completed' : unlocked ? 'Ready' : 'Locked'}
+                </span>
               </div>
-
-              {/* Instruction */}
-              <p className="text-xs sm:text-sm text-[#5C6B57] font-medium leading-relaxed">
-                {config.instruction}
-              </p>
-
-              {/* Bottom Row: Score & Start Action */}
-              <div className="flex items-center justify-between border-t border-[#E5DDD0] pt-3 mt-1">
-                <div>
-                  {attempts > 0 ? (
-                    <div className="flex items-center gap-2 text-xs">
-                      <span className="font-bold text-[#5C6B57]">Điểm cao nhất:</span>
-                      <span
-                        className={`font-black font-serif text-sm ${
-                          isPassed ? 'text-[#4B5D44]' : 'text-[#BC8A5F]'
-                        }`}
-                      >
-                        {bestScore}%
-                      </span>
-                      <span className="text-[10px] text-[#8C9886]">({attempts} lần làm)</span>
-                    </div>
-                  ) : (
-                    <span className="text-xs text-[#8C9886] font-medium">Chưa làm bài</span>
-                  )}
-                </div>
-
-                <button
-                  id={`start-vocab-practice-${type}`}
-                  onClick={() => isUnlocked && onSelectPractice(type)}
-                  disabled={!isUnlocked}
-                  className={`px-4 py-2 rounded-xl font-black text-xs transition-all flex items-center gap-1.5 ${
-                    !isUnlocked
-                      ? 'bg-[#E5DDD0] text-[#8C9886] cursor-not-allowed'
-                      : isPassed
-                      ? 'bg-[#FAF7F2] hover:bg-[#F2ECE1] text-[#2D332A] border border-[#E5DDD0] cursor-pointer'
-                      : 'bg-[#4B5D44] hover:bg-[#3D4C37] text-white shadow-xs cursor-pointer'
-                  }`}
-                >
-                  <span>{attempts > 0 ? 'LÀM LẠI' : 'BẮT ĐẦU'}</span>
-                  <Play className="w-3 h-3 fill-current" />
+              <p className="text-xs font-extrabold uppercase tracking-widest text-[#986021] mt-5">Stage {index + 1} of 6</p>
+              <h3 className="font-serif text-2xl sm:text-[28px] leading-tight font-black text-[#163D2C] mt-1">{stage.title}</h3>
+              <p className="text-base text-[#4C6357] mt-2 min-h-12">{stage.description}</p>
+              <div className="flex items-center justify-between gap-3 border-t border-[#DCD6C9] mt-5 pt-4">
+                <p className="text-sm sm:text-base font-semibold text-[#365345]">{attempts ? `Best: ${progress.bestScores[stage.type]}%` : 'Not started'}</p>
+                <button type="button" disabled={!unlocked} onClick={() => onSelectPractice(stage.type)} className={`min-h-12 rounded-xl px-4 sm:px-5 text-sm sm:text-base font-black inline-flex items-center gap-2 focus-visible:outline focus-visible:outline-4 focus-visible:outline-[#E6A044] ${!unlocked ? 'bg-[#DDD9D1] text-[#777A73] cursor-not-allowed' : passed ? 'bg-[#E0EFE2] text-[#125336] hover:bg-[#CBE6D2]' : 'bg-[#135237] text-white hover:bg-[#0A3C28]'}`}>
+                  {passed ? <RotateCcw size={18}/> : <Play size={18}/>}{passed ? 'Try Again' : 'Start'}
                 </button>
               </div>
-            </div>
+            </article>
           );
         })}
       </div>
-    </div>
+      {needsReview > 0 && <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-2xl border border-[#E9C895] bg-[#FFF6E7] p-5">
+        <p className="text-base font-semibold text-[#794615]">{needsReview} words to review</p>
+        <button type="button" onClick={() => onSelectPractice('review_wrong_words')} className="rounded-xl bg-[#A75F23] text-white font-bold px-5 py-3">Review Words</button>
+      </div>}
+    </section>
   );
 };

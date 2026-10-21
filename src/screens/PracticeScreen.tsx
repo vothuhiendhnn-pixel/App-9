@@ -155,7 +155,7 @@ export const PracticeScreen: React.FC<PracticeScreenProps> = ({
   };
 
   return (
-    <div className="space-y-6 pb-24 max-w-4xl mx-auto px-4 pt-4 sm:px-6">
+    <div className="space-y-6 pb-24 max-w-5xl mx-auto px-4 pt-4 sm:px-6">
       {/* Top Bar */}
       <div className="flex items-center justify-between">
         <button
@@ -163,7 +163,7 @@ export const PracticeScreen: React.FC<PracticeScreenProps> = ({
           className="inline-flex items-center gap-1.5 text-xs font-bold text-[#5C6B57] hover:text-[#2D332A] bg-white border border-[#E5DDD0] px-3 py-1.5 rounded-xl transition-colors shadow-xs"
         >
           <ArrowLeft className="w-3.5 h-3.5" />
-          <span>Quay lại Unit 1</span>
+          <span>Back to Unit 1</span>
         </button>
 
         <span className="text-xs font-black text-[#8E5D32] bg-[#FAF2E4] border border-[#F0DEBA] px-3 py-1 rounded-full">
@@ -172,7 +172,7 @@ export const PracticeScreen: React.FC<PracticeScreenProps> = ({
       </div>
 
       {/* Listening Practice Card */}
-      <div className="bg-white rounded-[22px] p-6 border border-[#E5DDD0] shadow-xs space-y-6">
+      <div className="bg-white rounded-[28px] p-5 sm:p-8 border-2 border-[#D9CBB7] shadow-lg space-y-7">
         {/* Title */}
         <div className="flex items-center justify-between border-b border-[#EBE3D5] pb-4">
           <div className="flex items-center gap-2.5">
@@ -191,13 +191,13 @@ export const PracticeScreen: React.FC<PracticeScreenProps> = ({
         </div>
 
         {/* Audio Player Box */}
-        <div className="bg-[#FAF7F2] p-4 sm:p-5 rounded-2xl border border-[#E5DDD0] space-y-3">
+        <div className="bg-[#F0F7F0] p-5 sm:p-7 rounded-2xl border-2 border-[#B5D4BE] space-y-4">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-[#8E5D32]">
               Audio Track: A Community Helper (~22s)
             </span>
             <span className="text-xs font-mono font-bold text-[#5C6B57]">
-              {isPlaying ? 'Đang phát...' : 'Sẵn sàng'}
+              {isPlaying ? 'Playing...' : 'Ready'}
             </span>
           </div>
 
@@ -214,10 +214,10 @@ export const PracticeScreen: React.FC<PracticeScreenProps> = ({
             {!isPlaying ? (
               <button
                 onClick={handlePlayAudio}
-                className="bg-[#4B5D44] hover:bg-[#3D4C37] text-white px-5 py-2.5 rounded-xl font-bold text-xs shadow-xs transition-all flex items-center gap-2"
+                className="bg-[#12523A] hover:bg-[#0C3D2A] text-white px-7 py-4 rounded-xl font-extrabold text-lg shadow-xs transition-all flex items-center gap-2"
               >
                 <Play className="w-4 h-4 fill-white" />
-                <span>Nghe bài đọc</span>
+                <span>Play Audio</span>
               </button>
             ) : (
               <button
@@ -225,27 +225,27 @@ export const PracticeScreen: React.FC<PracticeScreenProps> = ({
                 className="bg-[#2D332A] text-white px-5 py-2.5 rounded-xl font-bold text-xs shadow-xs transition-all flex items-center gap-2"
               >
                 <Pause className="w-4 h-4" />
-                <span>Tạm dừng</span>
+                <span>Pause Audio</span>
               </button>
             )}
 
             <button
               onClick={handlePlayAudio}
-              className="bg-white border border-[#E5DDD0] hover:bg-[#FAF7F2] text-[#2D332A] px-4 py-2.5 rounded-xl font-bold text-xs shadow-xs transition-all flex items-center gap-1.5"
+              className="bg-white border-2 border-[#C7D4C8] hover:bg-[#F0F8F1] text-[#17472F] px-6 py-3 rounded-xl font-bold text-base shadow-xs transition-all flex items-center gap-1.5"
             >
               <RotateCcw className="w-3.5 h-3.5 text-[#5C6B57]" />
-              <span>Nghe lại</span>
+              <span>Replay</span>
             </button>
           </div>
         </div>
 
         {/* Text with Gap-Fill Inputs */}
-        <div className="bg-[#FAF7F2] rounded-2xl p-5 border border-[#E5DDD0] space-y-4">
+        <div className="bg-[#FCF9F3] rounded-2xl p-6 sm:p-7 border border-[#D9CBB7] space-y-5">
           <h3 className="text-xs font-black text-[#5C6B57] uppercase tracking-wider">
-            Điền từ còn thiếu vào các chỗ trống:
+            Listen and fill in the missing words:
           </h3>
 
-          <div className="text-sm sm:text-base leading-loose font-medium text-[#2D332A] space-y-3">
+          <div className="text-lg sm:text-2xl leading-loose font-semibold text-[#173A2A] space-y-5">
             <p>
               Mr Vinh is a hardworking man in our local community.
             </p>
@@ -259,7 +259,7 @@ export const PracticeScreen: React.FC<PracticeScreenProps> = ({
                 onChange={(e) => setAnswers({ ...answers, 1: e.target.value })}
                 disabled={feedbackState === 'submitted'}
                 placeholder="(collector type)"
-                className={`px-3 py-1 rounded-xl border text-sm font-bold w-36 text-center ${
+                className={`px-3 py-1 rounded-xl border-2 text-lg sm:text-xl font-bold w-40 sm:w-52 min-h-12 text-center ${
                   feedbackState === 'submitted'
                     ? (answers[1] || '').trim().toLowerCase() === 'garbage'
                       ? 'bg-[#E8EFE6] border-[#C6D8C2] text-[#384732]'
@@ -270,7 +270,7 @@ export const PracticeScreen: React.FC<PracticeScreenProps> = ({
               <span>collector.</span>
               {feedbackState === 'submitted' && (answers[1] || '').trim().toLowerCase() !== 'garbage' && (
                 <span className="text-xs font-bold text-[#384732] bg-[#E8EFE6] px-2 py-0.5 rounded-md border border-[#C6D8C2]">
-                  Đáp án: garbage
+                  Answer: garbage
                 </span>
               )}
             </div>
@@ -284,7 +284,7 @@ export const PracticeScreen: React.FC<PracticeScreenProps> = ({
                 onChange={(e) => setAnswers({ ...answers, 2: e.target.value })}
                 disabled={feedbackState === 'submitted'}
                 placeholder="(adjective)"
-                className={`px-3 py-1 rounded-xl border text-sm font-bold w-36 text-center ${
+                className={`px-3 py-1 rounded-xl border-2 text-lg sm:text-xl font-bold w-40 sm:w-52 min-h-12 text-center ${
                   feedbackState === 'submitted'
                     ? (answers[2] || '').trim().toLowerCase() === 'clean'
                       ? 'bg-[#E8EFE6] border-[#C6D8C2] text-[#384732]'
@@ -295,7 +295,7 @@ export const PracticeScreen: React.FC<PracticeScreenProps> = ({
               <span>and tidy.</span>
               {feedbackState === 'submitted' && (answers[2] || '').trim().toLowerCase() !== 'clean' && (
                 <span className="text-xs font-bold text-[#384732] bg-[#E8EFE6] px-2 py-0.5 rounded-md border border-[#C6D8C2]">
-                  Đáp án: clean
+                  Answer: clean
                 </span>
               )}
             </div>
@@ -309,7 +309,7 @@ export const PracticeScreen: React.FC<PracticeScreenProps> = ({
                 onChange={(e) => setAnswers({ ...answers, 3: e.target.value })}
                 disabled={feedbackState === 'submitted'}
                 placeholder="(verb)"
-                className={`px-3 py-1 rounded-xl border text-sm font-bold w-36 text-center ${
+                className={`px-3 py-1 rounded-xl border-2 text-lg sm:text-xl font-bold w-40 sm:w-52 min-h-12 text-center ${
                   feedbackState === 'submitted'
                     ? (answers[3] || '').trim().toLowerCase() === 'takes'
                       ? 'bg-[#E8EFE6] border-[#C6D8C2] text-[#384732]'
@@ -320,7 +320,7 @@ export const PracticeScreen: React.FC<PracticeScreenProps> = ({
               <span>care of the environment every single day.</span>
               {feedbackState === 'submitted' && (answers[3] || '').trim().toLowerCase() !== 'takes' && (
                 <span className="text-xs font-bold text-[#384732] bg-[#E8EFE6] px-2 py-0.5 rounded-md border border-[#C6D8C2]">
-                  Đáp án: takes
+                  Answer: takes
                 </span>
               )}
             </div>
@@ -332,7 +332,7 @@ export const PracticeScreen: React.FC<PracticeScreenProps> = ({
           <div className="bg-[#FAF2E4] border border-[#F0DEBA] p-4 rounded-xl text-xs space-y-1 animate-in fade-in">
             <div className="flex items-center gap-1.5 text-[#875514] font-bold">
               <AlertCircle className="w-4 h-4" />
-              <span>Có chỗ chưa chính xác. Bạn hãy bấm "Nghe lại" và thử làm lại lần 2 nhé!</span>
+              <span>Có chỗ chưa chính xác. Bạn hãy bấm "Replay" và thử làm lại lần 2 nhé!</span>
             </div>
             <p className="text-[#875514]">
               💡 <strong>Gợi ý:</strong> Chú ý các từ chỉ nghề nghiệp dọn rác và giữ môi trường sạch sẽ.
@@ -348,7 +348,7 @@ export const PracticeScreen: React.FC<PracticeScreenProps> = ({
               className="text-xs font-bold text-[#4B5D44] hover:underline flex items-center gap-1.5"
             >
               {showTranscript ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-              <span>{showTranscript ? 'Ẩn Transcript bài nghe' : 'Xem toàn văn Transcript'}</span>
+              <span>{showTranscript ? 'Hide Transcript' : 'Show Transcript'}</span>
             </button>
 
             {showTranscript && (
@@ -365,23 +365,23 @@ export const PracticeScreen: React.FC<PracticeScreenProps> = ({
           {feedbackState !== 'submitted' ? (
             <button
               onClick={handleCheckAnswers}
-              className="bg-[#4B5D44] hover:bg-[#3D4C37] text-white px-6 py-2.5 rounded-xl font-extrabold text-sm shadow-xs transition-all ml-auto"
+              className="bg-[#135237] hover:bg-[#0D3C29] text-white px-8 py-4 rounded-xl font-extrabold text-lg shadow-xs transition-all ml-auto"
             >
-              {feedbackState === 'try_again' ? 'Nộp bài (Lần 2)' : 'Nộp bài điền từ'}
+              {feedbackState === 'try_again' ? 'Submit (Second Try)' : 'Check Answers'}
             </button>
           ) : (
             <div className="flex items-center justify-between w-full">
               <div className="flex items-center gap-2">
                 <CheckCircle2 className="w-5 h-5 text-[#384732]" />
                 <span className="text-xs font-bold text-[#384732]">
-                  Đúng {score} / 3 câu ({Math.round((score / 3) * 100)}%)
+                  Correct: {score} / 3 ({Math.round((score / 3) * 100)}%)
                 </span>
               </div>
               <button
                 onClick={onNavigateChallenge}
-                className="bg-[#8E5D32] hover:bg-[#784D28] text-white px-6 py-2.5 rounded-xl font-black text-xs shadow-xs transition-all flex items-center gap-1.5"
+                className="bg-[#A55E25] hover:bg-[#874717] text-white px-6 py-3 rounded-xl font-black text-base shadow-xs transition-all flex items-center gap-1.5"
               >
-                <span>Làm Unit 1 Challenge (100đ)</span>
+                <span>Next Challenge</span>
                 <ArrowRight className="w-4 h-4" />
               </button>
             </div>
