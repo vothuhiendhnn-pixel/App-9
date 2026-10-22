@@ -26,7 +26,6 @@ export const LoginModal: React.FC<LoginModalProps> = ({
 }) => {
   const [tab, setTab] = useState<LoginTab>(initialTab);
   const [studentCode, setStudentCode] = useState('');
-  const [studentCodeFocused, setStudentCodeFocused] = useState(false);
   const [studentPassword, setStudentPassword] = useState('');
   const [teacherEmail, setTeacherEmail] = useState('');
   const [teacherPassword, setTeacherPassword] = useState('');
@@ -194,9 +193,6 @@ export const LoginModal: React.FC<LoginModalProps> = ({
                   value={studentCode}
                   onChange={e => setStudentCode(e.target.value)}
                   autoComplete="off"
-                  readOnly={!studentCodeFocused}
-                  onFocus={() => setStudentCodeFocused(true)}
-                  onBlur={() => setStudentCodeFocused(false)}
                   placeholder="Ví dụ: HS9A1-10"
                   spellCheck={false}
                   required
