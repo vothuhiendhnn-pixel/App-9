@@ -218,7 +218,7 @@ export const TeacherDashboardScreen: React.FC<TeacherDashboardScreenProps> = ({ 
     const url = URL.createObjectURL(new Blob([content], { type: 'text/csv;charset=utf-8' }));
     const link = document.createElement('a');
     link.href = url;
-    link.download = 'English9_ket_qua_Supabase.csv';
+    link.download = 'English9_ket_qua_DEMO.csv';
     link.click();
     URL.revokeObjectURL(url);
   };
@@ -227,7 +227,7 @@ export const TeacherDashboardScreen: React.FC<TeacherDashboardScreenProps> = ({ 
     <main className="max-w-6xl mx-auto px-4 py-6 pb-20 space-y-5 text-[#2D332A]">
       <header className="flex flex-wrap justify-between gap-3 items-center">
         <div>
-          <div className="flex gap-2 items-center text-xs text-[#5A7258] font-bold"><ShieldCheck className="w-4 h-4"/> DỮ LIỆU THẬT • SUPABASE</div>
+          <div className="flex gap-2 items-center text-xs text-[#5A7258] font-bold"><ShieldCheck className="w-4 h-4"/> DỮ LIỆU MINH HỌA • SUPABASE DEMO</div>
           <h1 className="text-2xl font-bold mt-1">Dashboard giáo viên</h1>
           <p className="text-xs text-gray-600 mt-1">Giáo viên: {user.name}. Chỉ hiển thị học sinh và bài nộp đọc được từ Supabase.</p>
         </div>
