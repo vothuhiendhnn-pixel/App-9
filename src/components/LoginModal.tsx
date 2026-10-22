@@ -173,6 +173,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
         <div className="p-7">
           <div className="mx-auto mb-4 w-16 h-16 bg-[#5A7258] rounded-2xl flex items-center justify-center text-white font-serif text-2xl">E9</div>
           <h2 className="text-2xl font-bold text-center text-[#2D332A] mb-6 font-serif">English 9 - Miss Hiền</h2>
+          <p className="mb-5 text-center text-xs font-bold text-[#8B5A2B] bg-[#F7EEE5] border border-[#EAD6BE] rounded-xl p-2">CHẾ ĐỘ TRẢI NGHIỆM – DỮ LIỆU GIẢ LẬP (DEMO)</p>
           <div className="mb-6 text-center">
             <span className={`inline-flex rounded-full px-5 py-2 font-bold text-sm ${tab === 'student' ? 'bg-[#E8F1E7] text-[#456743]' : 'bg-[#F7EEE5] text-[#8B5A2B]'}`}>
               {tab === 'student' ? 'Đăng nhập học sinh' : 'Đăng nhập giáo viên'}
